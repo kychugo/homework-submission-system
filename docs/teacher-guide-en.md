@@ -36,6 +36,10 @@ The teacher control panel is a web page served from your Google Apps Script depl
    | 課業設置 | Homework assignment panel |
    | 底層：繳交/佈置表 | Direct link to the underlying Google Sheet |
    | 手動發還課業 | Button to immediately trigger the return process |
+   | 課業類別設定 | Add or remove homework categories |
+   | 自動共用管理 | Add/remove students from the auto-share list |
+
+3. At the bottom of the page, the **Student Submission Link** (`?page=submit`) is displayed. Share this URL with your students — do **not** share the root control panel URL.
 
 ---
 
@@ -49,10 +53,10 @@ The teacher control panel is a web page served from your Google Apps Script depl
    | Field | Description |
    |-------|-------------|
    | 選擇班別 | Select the class (e.g. `1A`, `2B`) |
-   | 選擇課業類別 | Choose a category: `閱讀`, `寫作（長文）`, or `寫作（實用文）` |
+   | 選擇課業類別 | Choose a category from the dropdown. Categories can be managed in **「課業類別設定」** (see [Section 9](#9-homework-category--subject-configuration)). |
    | 課業名稱 | Enter the full homework title (e.g. `藏在泥土的寶物`) |
    | 關鍵詞 | Enter a keyword that is part of the homework name (e.g. `寶物`) — students must include this in their filename |
-   | 截止日期和時間 | Enter deadline in format `YYYY-MM-DD HH:MM` (e.g. `2025-04-24 23:59`) |
+   | 截止日期和時間 | Pick a date and time using the **date picker**, or type directly in the text field below it (format `YYYY-MM-DD HH:MM`, e.g. `2025-04-24 23:59`) |
 
 3. Click **「提交」**. A confirmation modal will appear showing all entered details.
 4. Click **「確定」** to confirm, or **「取消」** to go back and edit.

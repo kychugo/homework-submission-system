@@ -2,6 +2,8 @@
 
 > **Language:** English | [粵語版本 → setup-yue.md](./setup-yue.md)
 
+> **Updated for:** student submission panel, category config panel, auto-share management panel, simplified deadline display, any-format file support.
+
 ---
 
 ## Table of Contents
@@ -128,28 +130,34 @@ The teacher control panel is served as a Google Apps Script **Web App**.
 
 ---
 
-## 6. Step 4 — Deploy the Student Submission App
+## 6. Step 4 — Find the Student Submission URL
 
-The student submission app is a **separate Web App deployment** of the same project. It allows students to choose which homework to submit, enter their name, and upload one or more files — without accessing the teacher's control panel.
+The student submission panel is built into the **same Web App** as the teacher control panel. After deploying the Web App (Step 3), you will find the student submission URL displayed prominently at the bottom of the teacher control panel dashboard:
 
-> Students use the same Google Drive upload folder (`1. 上傳課業Link（學生）`). The student app simply provides a guided UI for naming the file correctly.
+> **Student Submission URL:** `{your Web App URL}?page=submit`
 
-1. Return to the Apps Script editor (see Step 3, items 1–2).
-2. Create **a second deployment** following the same steps as Step 3.
-3. Set "Who has access" to **「任何人（包含匿名使用者）」 (Anyone, including anonymous)** so students without school accounts can also submit if needed.
-4. Share the resulting URL with students as the **"Homework Submission Link"**.
+To share it:
+1. Open your Teacher Control Panel URL in a browser.
+2. At the bottom of the page, look for the **"學生繳交連結"** (Student Submission Link) section.
+3. Copy that URL and share it with your students (e.g., via email, class notice board, or LMS).
 
-> The student app URL and the teacher control panel URL are **different URLs** pointing to different pages of the same Web App.  
-> Teacher URL: `https://script.google.com/macros/s/.../exec` (no parameters → control panel)  
-> Student URL: will route to the student submission page.
+> **Important:** Share **only** the `?page=submit` URL with students.  
+> Do **not** share the root Control Panel URL or the `?page=homework` URL.
 
 ---
 
 ## 7. Step 5 — Set Up Student Accounts (Auto-Share)
 
-For each student to receive their personal "returned homework" folder, you must register them in the **「帙雲 - 自動共用、收集位址」** spreadsheet.
+For each student to receive their personal "returned homework" folder, you must register them in the system. You can do this in **two ways**:
 
-### How to add students
+### Option A — Auto-Share Management Panel (New)
+
+1. Open the Teacher Control Panel.
+2. Click **「自動共用管理」**.
+3. In the form at the bottom, enter the student's **学号 (Student ID)** and **姓名 (Name)**, then click **「新增」**.
+4. To run the share process immediately, click **「立即執行共用」**.
+
+### Option B — Edit the Spreadsheet Directly
 
 1. Open **「帙雲 - 自動共用、收集位址」** from the installer spreadsheet or your Google Drive.
 2. The sheet has three columns:
@@ -204,19 +212,18 @@ The submission record and folder structure are driven by the **「帙雲 - 繳�
 📁 帙雲/
 │
 ├── 1. 上傳課業Link（學生）/
-│   └── (Student uploads go here — named: classname_studentname_keyword.ext)
+│   └── (Student uploads go here — named: ClassNameStudentNameKeyword.ext)
 │
 ├── 2. 待批改課業/
 │   └── 1A/
-│       ├── 閱讀/
-│       │   └── 【keyword】/
+│       ├── 閱讀/               ← Category (configurable via 課業類別設定 panel)
+│       │   └── HomeworkTitle/
 │       ├── 寫作（長文）/
-│       │   └── 【keyword】/
-│       └── 寫作（實用文）/
-│           └── 【keyword】/
+│       │   └── HomeworkTitle/
+│       └── (any custom categories you add)
 │
 ├── 3. 老師回饋區/
-│   └── (Teacher places annotated files here, named with class + student)
+│   └── (Teacher places annotated files here)
 │
 └── 4. 已發還課業/
     └── 【1A】/
@@ -224,8 +231,10 @@ The submission record and folder structure are driven by the **「帙雲 - 繳�
             ├── 閱讀/
             ├── 寫作（長文）/
             │   └── HomeworkTitle/
-            └── 寫作（實用文）/
+            └── (custom categories)
 ```
+
+> The category list is now fully configurable from the **「課業類別設定」** panel in the teacher control panel. The default categories are `閱讀`, `寫作（長文）`, and `寫作（實用文）`.
 
 ---
 
