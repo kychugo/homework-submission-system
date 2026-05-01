@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系統設定 - 課業類別</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Serif TC', serif;
+      background: #2b2b2b;
+      color: #f0f0f0;
+      margin: 0;
+      min-height: 100vh;
+    }
+    .header {
+      text-align: center;
+      padding: 18px;
+      background: rgba(30,30,30,0.97);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .header h1 { color: #2471a3; font-size: 34px; margin: 0; }
+    .main-content { max-width: 680px; margin: 0 auto; padding: 30px 20px; }
+    .card {
+      background: rgba(51,51,51,0.92);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      margin-bottom: 20px;
+    }
+    h2 { color: #87CEEB; margin-top: 0; }
+    .category-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: rgba(70,130,180,0.15);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    .del-btn {
+      background: #cc4444;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .del-btn:hover { background: #aa2222; }
+    .add-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .add-row input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid #555;
+      border-radius: 6px;
+      background: #444;
+      color: #f0f0f0;
+      font-size: 16px;
+    }
+    .add-btn {
+      padding: 10px 20px;
+      background: #4682B4;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .add-btn:hover { background: #3670a1; }
+    .back-btn {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 10px 20px;
+      background: #555;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    .back-btn:hover { background: #777; }
+    .status-msg { margin-top: 10px; font-size: 14px; min-height: 20px; }
+    .status-msg.success { color: #4CAF50; }
+    .status-msg.error   { color: #ff6666; }
+    .note { color: #aaa; font-size: 13px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⚙️ 系統設定 — 課業類別</h1>
+  </div>
+
+  <div class="main-content">
+    <div class="card">
+      <h2>現有課業類別</h2>
+      <div id="category-list">載入中...</div>
+
+      <div class="add-row">
+        <input type="text" id="new-category" placeholder="輸入新類別名稱（例如：默書）">
+        <button class="add-btn" onclick="addCategory()">新增</button>
+      </div>
+      <div id="status-msg" class="status-msg"></div>
+
+      <p class="note">
+        ⚠️ 刪除類別後，已建立的資料夾不受影響，但新布置的課業將不再使用該類別建立子資料夾。<br>
+        修改後，新布置的課業將使用更新後的類別清單。
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>科目設定</h2>
+      <div id="subject-list">載入中...</div>
+
+      <div class="add-row">
+        <input type="text" id="new-subject" placeholder="輸入新科目名稱（例如：普通話）">
+        <button class="add-btn" onclick="addSubject()">新增</button>
+      </div>
+      <div id="subject-status-msg" class="status-msg"></div>
+
+      <p class="note">
+        ⚠️ 科目為布置課業時的頂層分類（例如：中文、英文），可自由增刪。<br>
+        刪除科目不影響已布置的課業，但新布置時將不再提供該選項。
+      </p>
+    </div>
+
+    <a href="javascript:history.back()" class="back-btn">← 返回控制面板</a>
+  </div>
+
+  <script>
+    var categories = [];
+
+    function loadCategories() {
+      google.script.run
+        .withSuccessHandler(function(cats) {
+          categories = cats;
+          renderCategories();
+        })
+        .withFailureHandler(function(e) {
+          document.getElementById('category-list').textContent = '載入失敗：' + e.message;
+        })
+        .getCategories();
+    }
+
+    function renderCategories() {
+      var list = document.getElementById('category-list');
+      if (categories.length === 0) {
+        list.innerHTML = '<p style="color:#aaa;">沒有類別</p>';
+        return;
+      }
+      list.innerHTML = '';
+      categories.forEach(function(cat, i) {
+        var div = document.createElement('div');
+        div.className = 'category-item';
+        div.innerHTML = '<span>' + cat + '</span>' +
+          '<button class="del-btn" onclick="deleteCategory(' + i + ')">刪除</button>';
+        list.appendChild(div);
+      });
+    }
+
+    function addCategory() {
+      var input = document.getElementById('new-category');
+      var name = input.value.trim();
+      if (!name) { showStatus('請輸入類別名稱', 'error'); return; }
+      if (categories.indexOf(name) !== -1) { showStatus('此類別已存在', 'error'); return; }
+      categories.push(name);
+      saveCats(function() { input.value = ''; });
+    }
+
+    function deleteCategory(idx) {
+      if (!confirm('確定刪除類別「' + categories[idx] + '」？')) return;
+      categories.splice(idx, 1);
+      saveCats(null);
+    }
+
+    function saveCats(callback) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showStatus('✅ 已儲存', 'success');
+            renderCategories();
+            if (callback) callback();
+          } else {
+            showStatus('❌ ' + result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(e) {
+          showStatus('❌ 儲存失敗：' + e.message, 'error');
+        })
+        .saveCategories(categories);
+    }
+
+    function showStatus(msg, type) {
+      var el = document.getElementById('status-msg');
+      el.textContent = msg;
+      el.className = 'status-msg ' + type;
+      setTimeout(function() { el.textContent = ''; el.className = 'status-msg'; }, 3000);
+    }
+
+    window.onload = function() {
+      loadCategories();
+      loadSubjects();
+    };
+
+    // ---- 科目管理 ----
+    var subjects = [];
+
+    function loadSubjects() {
+      google.script.run
+        .withSuccessHandler(function(list) {
+          subjects = list;
+          renderSubjects();
+        })
+        .withFailureHandler(function(e) {
+          document.getElementById('subject-list').textContent = '載入失敗：' + e.message;
+        })
+        .getSubjects();
+    }
+
+    function renderSubjects() {
+      var list = document.getElementById('subject-list');
+      if (subjects.length === 0) {
+        list.innerHTML = '<p style="color:#aaa;">沒有科目</p>';
+        return;
+      }
+      list.innerHTML = '';
+      subjects.forEach(function(sub, i) {
+        var div = document.createElement('div');
+        div.className = 'category-item';
+        div.innerHTML = '<span>' + sub + '</span>' +
+          '<button class="del-btn" onclick="deleteSubject(' + i + ')">刪除</button>';
+        list.appendChild(div);
+      });
+    }
+
+    function addSubject() {
+      var input = document.getElementById('new-subject');
+      var name = input.value.trim();
+      if (!name) { showSubjectStatus('請輸入科目名稱', 'error'); return; }
+      if (subjects.indexOf(name) !== -1) { showSubjectStatus('此科目已存在', 'error'); return; }
+      subjects.push(name);
+      saveSubjs(function() { input.value = ''; });
+    }
+
+    function deleteSubject(idx) {
+      if (!confirm('確定刪除科目「' + subjects[idx] + '」？')) return;
+      subjects.splice(idx, 1);
+      saveSubjs(null);
+    }
+
+    function saveSubjs(callback) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showSubjectStatus('✅ 已儲存', 'success');
+            renderSubjects();
+            if (callback) callback();
+          } else {
+            showSubjectStatus('❌ ' + result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(e) {
+          showSubjectStatus('❌ 儲存失敗：' + e.message, 'error');
+        })
+        .saveSubjects(subjects);
+    }
+
+    function showSubjectStatus(msg, type) {
+      var el = document.getElementById('subject-status-msg');
+      el.textContent = msg;
+      el.className = 'status-msg ' + type;
+      setTimeout(function() { el.textContent = ''; el.className = 'status-msg'; }, 3000);
+    }
+  </script>
+</body>
+</html>

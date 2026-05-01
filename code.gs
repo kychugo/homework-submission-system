@@ -22,12 +22,23 @@ function doGet(e) {
   } else if (page === 'homework') {
     const template = HtmlService.createTemplateFromFile('homework');
     return template.evaluate().setTitle('布置課業');
+  } else if (page === 'submit') {
+    const template = HtmlService.createTemplateFromFile('student');
+    return template.evaluate().setTitle('課業繳交');
+  } else if (page === 'config') {
+    const template = HtmlService.createTemplateFromFile('config');
+    return template.evaluate().setTitle('系統設定 - 課業類別');
+  } else if (page === 'autoshare') {
+    const template = HtmlService.createTemplateFromFile('autoshare');
+    return template.evaluate().setTitle('自動共用管理');
   } else {
     const template = HtmlService.createTemplateFromFile('Index');
     
     // 動態傳遞資料夾連結到前端
+    const appUrl = ScriptApp.getService().getUrl();
     template.urls = {
-      appUrl: ScriptApp.getService().getUrl(), 
+      appUrl: appUrl,
+      studentUrl: appUrl + '?page=submit',
       upload: DriveApp.getFolderById(props.getProperty('UPLOAD_FOLDER_ID')).getUrl(),
       pending: DriveApp.getFolderById(props.getProperty('PENDING_FOLDER_ID')).getUrl(),
       feedback: DriveApp.getFolderById(props.getProperty('FEEDBACK_FOLDER_ID')).getUrl(),
@@ -254,7 +265,6 @@ function sortStudentAssignments() {
   while (allFiles.hasNext()) {
     const file = allFiles.next();
     const fileName = file.getName();
-    if (!supportedMimeTypes.includes(file.getMimeType())) continue;
     
     const classMatch = fileName.match(/(\d+[A-Z])/);
     if (!classMatch) continue;
@@ -324,9 +334,10 @@ function distributeHomework() {
       if (!studentMap[classKey]) studentMap[classKey] = {};
       studentMap[classKey][studentKey] = studentFolder;
       
-      var writingFolders = studentFolder.getFoldersByName('寫作（長文）');
-      if (writingFolders.hasNext()) {
-        var assignmentFolders = writingFolders.next().getFolders();
+      var allCatFolders = studentFolder.getFolders();
+      while (allCatFolders.hasNext()) {
+        var catFolder = allCatFolders.next();
+        var assignmentFolders = catFolder.getFolders();
         while (assignmentFolders.hasNext()) {
           var assignmentFolder = assignmentFolders.next();
           var match = assignmentFolder.getName().match(/【(.*?)】/);
@@ -376,7 +387,7 @@ function createFoldersAndUpdateSheet() {
       studentNames = sheet.getRange('A4:A' + lastRow).getValues().flat().filter(String);
     }
 
-    const categories = ['閱讀', '寫作（長文）', '寫作（實用文）'];
+    const categories = getCategories();
 
     const classReturnFolder = getOrCreateFolder(returnedFolderId, `【${className}】`);
     if (classReturnFolder && studentNames.length > 0) {
@@ -397,16 +408,19 @@ function createFoldersAndUpdateSheet() {
     const homeworkNames = homeworkValues[0];
     const deadlines = homeworkValues[1];
     
-    const homeworkByCategory = { '閱讀': [], '寫作（長文）': [], '寫作（實用文）': [] };
+    const homeworkByCategory = {};
+    categories.forEach(cat => { homeworkByCategory[cat] = []; });
     const homeworkFolderIds = new Array(homeworkNames.length).fill('');
     const homeworkInfos = [];
     
     homeworkNames.forEach((name, index) => {
-      const match = name ? name.toString().match(/「(.*?)」/) : null;
-      if (match && categories.includes(match[1])) {
-        const title = name.replace(/「.*?」/, '').trim();
-        homeworkByCategory[match[1]].push(title);
-        homeworkInfos.push({ category: match[1], title: title });
+      // Support both "「subject」「category」title" and legacy "「category」title"
+      const parsed = parseHomeworkName(name);
+      const categoryValue = parsed.category;
+      const title = parsed.title;
+      if (categoryValue && categories.includes(categoryValue)) {
+        homeworkByCategory[categoryValue].push(title);
+        homeworkInfos.push({ category: categoryValue, title: title });
       } else {
         homeworkInfos.push(null);
       }
@@ -534,7 +548,7 @@ function getClassData() {
     const lastCol = sheet.getLastColumn();
     const hws = lastCol >= 2 ? sheet.getRange(1, 2, 2, lastCol - 1).getValues() : [[],[]];
     const students = sheet.getRange('A4:A' + sheet.getLastRow()).getValues().flat().filter(String);
-    const hwData = hws[0].map((name, i) => ({ name: name, deadline: hws[1][i].toString(), folderId: sheet.getRange(3, 2 + i).getValue() }));
+    const hwData = hws[0].map((name, i) => ({ name: name, deadline: formatDeadline(hws[1][i]), folderId: sheet.getRange(3, 2 + i).getValue() }));
     
     classData.push({
       className: className,
@@ -567,4 +581,158 @@ function updateSpreadsheet(className, homeworkName, deadline) {
   const nextCol = row1.findIndex((v, i) => i > 0 && !v) + 1 || row1.length + 1;
   sheet.getRange(1, nextCol).setValue(homeworkName);
   sheet.getRange(2, nextCol).setValue(deadline);
+}
+
+// ================== 日期格式化 ==================
+// Input format used everywhere for storage/entry: YYYY-MM-DD HH:MM (ISO-like, 24-hour)
+// Display format shown in submission records and student panel: DD/MM/YYYY HH:MM (user-friendly)
+function formatDeadline(value) {
+  if (!value) return '';
+  const d = (value instanceof Date) ? value : new Date(value);
+  if (isNaN(d.getTime())) return String(value);
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  const hour = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hour}:${min}`;
+}
+
+// ================== 課業類別管理 ==================
+function getCategories() {
+  const stored = PropertiesService.getUserProperties().getProperty('CATEGORIES');
+  if (stored) {
+    try { return JSON.parse(stored); } catch(e) {}
+  }
+  return ['閱讀', '寫作（長文）', '寫作（實用文）'];
+}
+
+function saveCategories(cats) {
+  if (!Array.isArray(cats) || cats.length === 0) return { success: false, message: '類別不能為空' };
+  PropertiesService.getUserProperties().setProperty('CATEGORIES', JSON.stringify(cats));
+  return { success: true };
+}
+
+// ================== 科目管理 ==================
+function getSubjects() {
+  const stored = PropertiesService.getUserProperties().getProperty('SUBJECTS');
+  if (stored) {
+    try { return JSON.parse(stored); } catch(e) {}
+  }
+  return ['中文', '英文', '數學', '常識'];
+}
+
+function saveSubjects(subjects) {
+  if (!Array.isArray(subjects) || subjects.length === 0) return { success: false, message: '科目不能為空' };
+  PropertiesService.getUserProperties().setProperty('SUBJECTS', JSON.stringify(subjects));
+  return { success: true };
+}
+
+// ================== 課業名稱解析 ==================
+// Homework names are stored in one of two formats:
+//   New: 「Subject」「Category」Title【Keyword】
+//   Legacy: 「Category」Title【Keyword】
+// Returns { category, title } where title has all 「」 pairs stripped.
+function parseHomeworkName(name) {
+  if (!name) return { category: null, title: '' };
+  const nameStr = name.toString();
+  const subjectCatMatch = nameStr.match(/「[^」]*」「([^」]*)」/);
+  const legacyCatMatch = nameStr.match(/「([^」]*)」/);
+  const category = subjectCatMatch ? subjectCatMatch[1] : (legacyCatMatch ? legacyCatMatch[1] : null);
+  const title = nameStr.replace(/「[^」]*」/g, '').trim();
+  return { category: category, title: title };
+}
+
+// ================== 自動共用面板 ==================
+function getAutoShareStudents() {
+  const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+  if (!autoShareId) return [];
+  const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, 3).getValues().map((row, i) => ({
+    rowIndex: i + 2,
+    studentId: String(row[0]).trim(),
+    name: String(row[1]).trim(),
+    folderUrl: String(row[2]).trim()
+  }));
+}
+
+function addAutoShareStudent(studentId, name) {
+  const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+  if (!autoShareId) return { success: false, message: '系統未初始化' };
+  if (!studentId || !name) return { success: false, message: '請填寫學號和姓名' };
+  const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+  sheet.appendRow([studentId.trim(), name.trim(), '']);
+  return { success: true };
+}
+
+function removeAutoShareStudent(rowIndex) {
+  const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+  if (!autoShareId) return { success: false, message: '系統未初始化' };
+  const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+  sheet.deleteRow(rowIndex);
+  return { success: true };
+}
+
+function triggerManualShare() {
+  try {
+    autoShareStudentFolders();
+    return { success: true, message: '✅ 自動共用已完成！請查看自動共用管理頁面。' };
+  } catch(e) {
+    return { success: false, message: '❌ 發生錯誤：' + e.message };
+  }
+}
+
+// ================== 學生繳交面板 ==================
+function getHomeworkListForStudent() {
+  const recordId = PropertiesService.getUserProperties().getProperty('RECORD_SHEET_ID');
+  if (!recordId) return { classes: [], homeworksByClass: {} };
+  const result = { classes: [], homeworksByClass: {} };
+  SpreadsheetApp.openById(recordId).getSheets().forEach(sheet => {
+    const className = sheet.getRange('A1').getValue().toString().trim();
+    if (!className) return;
+    result.classes.push(className);
+    const lastCol = sheet.getLastColumn();
+    if (lastCol < 2) { result.homeworksByClass[className] = []; return; }
+    const hws = sheet.getRange(1, 2, 2, lastCol - 1).getValues();
+    const homeworks = [];
+    hws[0].forEach((name, i) => {
+      if (!name) return;
+      const keywordMatch = name.toString().match(/【(.*?)】/);
+      const keyword = keywordMatch ? keywordMatch[1] : '';
+      homeworks.push({ name: name.toString(), keyword: keyword, deadline: formatDeadline(hws[1][i]) });
+    });
+    result.homeworksByClass[className] = homeworks;
+  });
+  return result;
+}
+
+function getStudentNamesForClass(className) {
+  const recordId = PropertiesService.getUserProperties().getProperty('RECORD_SHEET_ID');
+  if (!recordId) return [];
+  const sheet = SpreadsheetApp.openById(recordId).getSheets().find(
+    s => s.getRange('A1').getValue().toString().trim() === className
+  );
+  if (!sheet) return [];
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 4) return [];
+  return sheet.getRange('A4:A' + lastRow).getValues().flat().filter(String);
+}
+
+function uploadHomeworkFile(fileData) {
+  const uploadFolderId = PropertiesService.getUserProperties().getProperty('UPLOAD_FOLDER_ID');
+  if (!uploadFolderId) return { success: false, message: '系統未初始化' };
+  if (!fileData || !fileData.base64Data || !fileData.fileName) {
+    return { success: false, message: '檔案資料不完整' };
+  }
+  try {
+    const folder = DriveApp.getFolderById(uploadFolderId);
+    const decoded = Utilities.base64Decode(fileData.base64Data);
+    const blob = Utilities.newBlob(decoded, fileData.mimeType || 'application/octet-stream', fileData.fileName);
+    folder.createFile(blob);
+    return { success: true };
+  } catch(e) {
+    return { success: false, message: e.message };
+  }
 }

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自動共用管理</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Serif TC', serif;
+      background: #2b2b2b;
+      color: #f0f0f0;
+      margin: 0;
+      min-height: 100vh;
+    }
+    .header {
+      text-align: center;
+      padding: 18px;
+      background: rgba(30,30,30,0.97);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .header h1 { color: #2471a3; font-size: 34px; margin: 0; }
+    .main-content { max-width: 950px; margin: 0 auto; padding: 30px 20px; }
+    .card {
+      background: rgba(51,51,51,0.92);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      margin-bottom: 20px;
+    }
+    h2 { color: #87CEEB; margin-top: 0; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; min-width: 560px; }
+    th, td { padding: 10px 12px; border: 1px solid #555; text-align: left; }
+    th { background: #4682B4; font-weight: bold; }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.04); }
+    .status-ok      { color: #4CAF50; text-decoration: none; }
+    .status-ok:hover { text-decoration: underline; }
+    .status-pending { color: #aaa; }
+    .status-fail    { color: #ff6666; font-size: 13px; word-break: break-all; }
+    .del-btn {
+      background: #cc4444;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 3px 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .del-btn:hover { background: #aa2222; }
+    .add-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .add-row input {
+      flex: 1;
+      min-width: 130px;
+      padding: 10px;
+      border: 1px solid #555;
+      border-radius: 6px;
+      background: #444;
+      color: #f0f0f0;
+      font-size: 15px;
+    }
+    .add-btn {
+      padding: 10px 18px;
+      background: #4682B4;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    .add-btn:hover { background: #3670a1; }
+    .run-btn {
+      padding: 10px 18px;
+      background: #1abc9c;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    .run-btn:hover { background: #16a085; }
+    .run-btn:disabled, .add-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .back-btn {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 10px 20px;
+      background: #555;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    .back-btn:hover { background: #777; }
+    .status-msg { margin-top: 10px; font-size: 14px; min-height: 20px; }
+    .status-msg.success { color: #4CAF50; }
+    .status-msg.error   { color: #ff6666; }
+    .note { color: #aaa; font-size: 13px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔗 自動共用管理</h1>
+  </div>
+
+  <div class="main-content">
+    <div class="card">
+      <h2>學生名單</h2>
+      <div class="table-wrap">
+        <table id="student-table">
+          <thead>
+            <tr><th>學號</th><th>姓名</th><th>已發還資料夾</th><th>操作</th></tr>
+          </thead>
+          <tbody id="student-tbody">
+            <tr><td colspan="4" style="text-align:center;">載入中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="note">學號格式：如 <code>s12345</code>，不需加 @ccckyc.edu.hk</p>
+
+      <div class="add-row">
+        <input type="text" id="new-student-id"   placeholder="學號（例如 s12345）">
+        <input type="text" id="new-student-name" placeholder="姓名（例如 陳大文）">
+        <button class="add-btn" id="add-btn" onclick="addStudent()">新增</button>
+        <button class="run-btn" id="run-btn" onclick="runAutoShare()">立即執行共用</button>
+      </div>
+      <div id="status-msg" class="status-msg"></div>
+    </div>
+
+    <a href="javascript:history.back()" class="back-btn">← 返回控制面板</a>
+  </div>
+
+  <script>
+    var students = [];
+
+    function loadStudents() {
+      google.script.run
+        .withSuccessHandler(function(data) {
+          students = data;
+          renderStudents();
+        })
+        .withFailureHandler(function(e) {
+          document.getElementById('student-tbody').innerHTML =
+            '<tr><td colspan="4" style="color:#ff6666;">載入失敗：' + e.message + '</td></tr>';
+        })
+        .getAutoShareStudents();
+    }
+
+    function renderStudents() {
+      var tbody = document.getElementById('student-tbody');
+      if (students.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="color:#aaa; text-align:center;">暫無學生記錄</td></tr>';
+        return;
+      }
+      tbody.innerHTML = '';
+      students.forEach(function(s) {
+        var urlCell;
+        if (s.folderUrl && s.folderUrl.startsWith('http')) {
+          urlCell = '<a href="' + s.folderUrl + '" target="_blank" class="status-ok">已共用 ✓</a>';
+        } else if (s.folderUrl && s.folderUrl.includes('失敗')) {
+          urlCell = '<span class="status-fail">' + s.folderUrl + '</span>';
+        } else {
+          urlCell = '<span class="status-pending">等待共用</span>';
+        }
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + s.studentId + '</td>' +
+          '<td>' + s.name + '</td>' +
+          '<td>' + urlCell + '</td>' +
+          '<td><button class="del-btn" onclick="deleteStudent(' + s.rowIndex + ')">刪除</button></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    function addStudent() {
+      var id   = document.getElementById('new-student-id').value.trim();
+      var name = document.getElementById('new-student-name').value.trim();
+      if (!id || !name) { showStatus('請填寫學號和姓名', 'error'); return; }
+      var btn = document.getElementById('add-btn');
+      btn.disabled = true;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          if (result.success) {
+            document.getElementById('new-student-id').value = '';
+            document.getElementById('new-student-name').value = '';
+            showStatus('✅ 已新增', 'success');
+            loadStudents();
+          } else {
+            showStatus('❌ ' + result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(e) {
+          btn.disabled = false;
+          showStatus('❌ ' + e.message, 'error');
+        })
+        .addAutoShareStudent(id, name);
+    }
+
+    function deleteStudent(rowIndex) {
+      if (!confirm('確定刪除此學生記錄？')) return;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showStatus('✅ 已刪除', 'success');
+            loadStudents();
+          } else {
+            showStatus('❌ ' + result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(e) { showStatus('❌ ' + e.message, 'error'); })
+        .removeAutoShareStudent(rowIndex);
+    }
+
+    function runAutoShare() {
+      var btn = document.getElementById('run-btn');
+      btn.disabled = true;
+      btn.textContent = '執行中...';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          btn.disabled = false;
+          btn.textContent = '立即執行共用';
+          showStatus(result.message, result.success ? 'success' : 'error');
+          if (result.success) loadStudents();
+        })
+        .withFailureHandler(function(e) {
+          btn.disabled = false;
+          btn.textContent = '立即執行共用';
+          showStatus('❌ ' + e.message, 'error');
+        })
+        .triggerManualShare();
+    }
+
+    function showStatus(msg, type) {
+      var el = document.getElementById('status-msg');
+      el.textContent = msg;
+      el.className = 'status-msg ' + type;
+      setTimeout(function() { el.textContent = ''; el.className = 'status-msg'; }, 5000);
+    }
+
+    window.onload = loadStudents;
+  </script>
+</body>
+</html>

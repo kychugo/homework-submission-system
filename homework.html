@@ -188,11 +188,14 @@
       <label for="class-select">選擇班別：</label>
       <select id="class-select"></select>
 
+      <label for="subject-select">選擇科目：</label>
+      <select id="subject-select">
+        <option value="">載入中...</option>
+      </select>
+
       <label for="category-select">選擇課業類別：</label>
       <select id="category-select">
-        <option value="閱讀">閱讀</option>
-        <option value="寫作（長文）">寫作（長文）</option>
-        <option value="寫作（實用文）">寫作（實用文）</option>
+        <option value="">載入中...</option>
       </select>
 
       <label for="homework-name">課業名稱：</label>
@@ -201,7 +204,9 @@
       <label for="keyword">關鍵詞：</label>
       <input type="text" id="keyword" placeholder="例如：寶物">
 
-      <label for="deadline">截止日期和時間（格式：年-月-日 時-分，例如 2025-04-24 23:59）：</label>
+      <label for="deadline">截止日期和時間：</label>
+      <input type="datetime-local" id="deadline-picker" style="width:100%; padding:10px; margin-bottom:8px; border:1px solid #555; border-radius:5px; font-size:16px; background:#444; color:#f0f0f0; box-sizing:border-box;">
+      <label for="deadline" style="font-size:14px; color:#aaa; margin-bottom:5px;">或直接輸入（格式：年-月-日 時-分，例如 2025-04-24 23:59）：</label>
       <input type="text" id="deadline" placeholder="2025-04-24 23:59">
       <div id="deadline-error"></div>
 
@@ -216,6 +221,7 @@
     <div class="modal-content">
       <h2>確認課業資料</h2>
       <p id="confirm-class"></p>
+      <p id="confirm-subject"></p>
       <p id="confirm-category"></p>
       <p id="confirm-homework-name"></p>
       <p id="confirm-keyword"></p>
@@ -262,7 +268,31 @@
     }
 
     // 頁面載入時初始化
-    window.onload = loadClassesAndData;
+    window.onload = function() {
+      loadClassesAndData();
+      // 動態載入科目
+      google.script.run.withSuccessHandler(function(subjects) {
+        const subjSel = document.getElementById('subject-select');
+        subjSel.innerHTML = '';
+        subjects.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          subjSel.appendChild(opt);
+        });
+      }).getSubjects();
+      // 動態載入課業類別
+      google.script.run.withSuccessHandler(function(cats) {
+        const sel = document.getElementById('category-select');
+        sel.innerHTML = '';
+        cats.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          sel.appendChild(opt);
+        });
+      }).getCategories();
+    };
 
     // 當班別改變時，更新課業列表
     document.getElementById('class-select').addEventListener('change', function() {
@@ -329,18 +359,34 @@
 
     deadlineInput.addEventListener('input', formatDeadlineInput);
     deadlineInput.addEventListener('keydown', restrictInput);
-    deadlineInput.addEventListener('blur', validateDeadline);
+    deadlineInput.addEventListener('blur', function() {
+      validateDeadline.call(this);
+      // Sync valid text value to date picker
+      const val = this.value.trim();
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(val)) {
+        document.getElementById('deadline-picker').value = val.replace(' ', 'T');
+      }
+    });
+
+    // Sync from date picker to text input
+    document.getElementById('deadline-picker').addEventListener('change', function() {
+      if (!this.value) return;
+      const parts = this.value.split('T');
+      deadlineInput.value = parts[0] + ' ' + parts[1].substring(0, 5);
+      deadlineError.textContent = '';
+    });
 
     // 提交按鈕事件
     document.getElementById('submit-btn').addEventListener('click', function() {
       const className = document.getElementById('class-select').value;
+      const subject = document.getElementById('subject-select').value;
       const category = document.getElementById('category-select').value;
       const homeworkName = document.getElementById('homework-name').value.trim();
       const keyword = document.getElementById('keyword').value.trim();
       const deadline = document.getElementById('deadline').value.trim();
 
       // 驗證輸入
-      if (!className || !category || !homeworkName || !keyword || !deadline) {
+      if (!className || !subject || !category || !homeworkName || !keyword || !deadline) {
         alert('請填寫所有欄位');
         return;
       }
@@ -372,6 +418,7 @@
 
       // 顯示確認視窗
       document.getElementById('confirm-class').textContent = `班別：${className}`;
+      document.getElementById('confirm-subject').textContent = `科目：${subject}`;
       document.getElementById('confirm-category').textContent = `課業類別：${category}`;
       document.getElementById('confirm-homework-name').textContent = `課業名稱：${homeworkName}`;
       document.getElementById('confirm-keyword').textContent = `關鍵詞：${keyword}`;
@@ -382,13 +429,14 @@
     // 確認按鈕事件
     document.getElementById('confirm-btn').addEventListener('click', function() {
       const className = document.getElementById('class-select').value;
+      const subject = document.getElementById('subject-select').value;
       const category = document.getElementById('category-select').value;
       const homeworkName = document.getElementById('homework-name').value.trim();
       const keyword = document.getElementById('keyword').value.trim();
       const deadline = document.getElementById('deadline').value.trim();
 
-      // 格式化課業名稱
-      const finalHomeworkName = `「${category}」${homeworkName.replace(keyword, `【${keyword}】`)}`;
+      // 格式化課業名稱（包含科目和類別）
+      const finalHomeworkName = `「${subject}」「${category}」${homeworkName.replace(keyword, `【${keyword}】`)}`;
 
       // 提交資料到試算表
       google.script.run.withSuccessHandler(function() {
