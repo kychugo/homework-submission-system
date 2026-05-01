@@ -415,10 +415,9 @@ function createFoldersAndUpdateSheet() {
     
     homeworkNames.forEach((name, index) => {
       // Support both "「subject」「category」title" and legacy "「category」title"
-      const subjectCatMatch = name ? name.toString().match(/「[^」]*」「([^」]*)」/) : null;
-      const legacyCatMatch = name ? name.toString().match(/「([^」]*)」/) : null;
-      const categoryValue = subjectCatMatch ? subjectCatMatch[1] : (legacyCatMatch ? legacyCatMatch[1] : null);
-      const title = name ? name.toString().replace(/「[^」]*」/g, '').trim() : '';
+      const parsed = parseHomeworkName(name);
+      const categoryValue = parsed.category;
+      const title = parsed.title;
       if (categoryValue && categories.includes(categoryValue)) {
         homeworkByCategory[categoryValue].push(title);
         homeworkInfos.push({ category: categoryValue, title: title });
@@ -585,6 +584,8 @@ function updateSpreadsheet(className, homeworkName, deadline) {
 }
 
 // ================== 日期格式化 ==================
+// Input format used everywhere for storage/entry: YYYY-MM-DD HH:MM (ISO-like, 24-hour)
+// Display format shown in submission records and student panel: DD/MM/YYYY HH:MM (user-friendly)
 function formatDeadline(value) {
   if (!value) return '';
   const d = (value instanceof Date) ? value : new Date(value);
@@ -625,6 +626,21 @@ function saveSubjects(subjects) {
   if (!Array.isArray(subjects) || subjects.length === 0) return { success: false, message: '科目不能為空' };
   PropertiesService.getUserProperties().setProperty('SUBJECTS', JSON.stringify(subjects));
   return { success: true };
+}
+
+// ================== 課業名稱解析 ==================
+// Homework names are stored in one of two formats:
+//   New: 「Subject」「Category」Title【Keyword】
+//   Legacy: 「Category」Title【Keyword】
+// Returns { category, title } where title has all 「」 pairs stripped.
+function parseHomeworkName(name) {
+  if (!name) return { category: null, title: '' };
+  const nameStr = name.toString();
+  const subjectCatMatch = nameStr.match(/「[^」]*」「([^」]*)」/);
+  const legacyCatMatch = nameStr.match(/「([^」]*)」/);
+  const category = subjectCatMatch ? subjectCatMatch[1] : (legacyCatMatch ? legacyCatMatch[1] : null);
+  const title = nameStr.replace(/「[^」]*」/g, '').trim();
+  return { category: category, title: title };
 }
 
 // ================== 自動共用面板 ==================
