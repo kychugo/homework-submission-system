@@ -53,7 +53,8 @@ The teacher control panel is a web page served from your Google Apps Script depl
    | Field | Description |
    |-------|-------------|
    | 選擇班別 | Select the class (e.g. `1A`, `2B`) |
-   | 選擇課業類別 | Choose a category from the dropdown. Categories can be managed in **「課業類別設定」** (see [Section 9](#9-homework-category--subject-configuration)). |
+   | 選擇科目 | Choose a subject (e.g. `中文`, `英文`). Subjects can be managed in **「課業類別設定」** (see [Section 9](#9-homework-category--subject-configuration)). |
+   | 選擇課業類別 | Choose a category (e.g. `閱讀`, `寫作（長文）`). Categories can be managed in **「課業類別設定」**. |
    | 課業名稱 | Enter the full homework title (e.g. `藏在泥土的寶物`) |
    | 關鍵詞 | Enter a keyword that is part of the homework name (e.g. `寶物`) — students must include this in their filename |
    | 截止日期和時間 | Pick a date and time using the **date picker**, or type directly in the text field below it (format `YYYY-MM-DD HH:MM`, e.g. `2025-04-24 23:59`) |
@@ -65,7 +66,7 @@ After confirmation, the homework is written to the **「帙雲 - 繳交紀錄及
 
 ### Deadline format
 
-The system accepts deadlines in the format `YYYY-MM-DD HH:MM` using 24-hour time:
+The system accepts deadlines in the format `YYYY-MM-DD HH:MM` using 24-hour time. A date/time picker is also available:
 
 ```
 2025-04-24 23:59   ← 24 April 2025, 11:59 PM
@@ -79,14 +80,15 @@ You can type the numbers directly — the form will auto-format them.
 After submission, the system formats the homework name as:
 
 ```
-「Category」HomeworkTitle【Keyword】
+「Subject」「Category」HomeworkTitle【Keyword】
 ```
 
 **Example:**
+- Subject: `中文`
 - Category: `寫作（長文）`
 - Title: `藏在泥土的寶物`
 - Keyword: `寶物`
-- Result: `「寫作（長文）」藏在泥土的寶物【寶物】`
+- Result: `「中文」「寫作（長文）」藏在泥土的寶物【寶物】`
 
 This formatted name is used to create the corresponding Drive folder and to match student-submitted files.
 
@@ -97,7 +99,7 @@ You may also assign homework by editing the **「帙雲 - 繳交紀錄及課業�
 1. Open the sheet (linked from the Control Panel → "底層：繳交/佈置表").
 2. Navigate to the sheet tab for the target class (e.g. `1A`).
 3. In the next empty column (starting from column B):
-   - **Row 1**: Enter the formatted homework name (e.g. `「閱讀」作業名稱【關鍵詞】`)
+   - **Row 1**: Enter the formatted homework name (e.g. `「中文」「閱讀」作業名稱【關鍵詞】`)
    - **Row 2**: Enter the deadline (e.g. `2025-04-24 23:59`)
 4. Do **not** edit Row 3 (folder IDs — auto-managed).
 
@@ -224,21 +226,35 @@ This list only shows students who have **not yet submitted** and whose **deadlin
 
 ## 9. Homework Category & Subject Configuration
 
-Currently, the system supports three built-in categories:
+### Managing via the configuration panel
 
-| Category | Chinese |
-|----------|---------|
-| Reading | 閱讀 |
-| Long writing | 寫作（長文）|
-| Functional writing | 寫作（實用文）|
+The Control Panel includes a dedicated **「課業類別設定」 (Category & Subject Settings)** page. You can add or remove categories and subjects directly from your browser — no code changes required.
 
-These categories determine the folder structure within each student's returned homework folder and the "待批改課業" pending folder.
+1. From the Control Panel, click **「課業類別設定」**.
+2. The page is split into two sections:
 
-> If you need to add or modify categories, edit the following in `code.gs`:
-> - The `categories` array in `createFoldersAndUpdateSheet()`  
-> - The options in the homework assignment panel (`homework.html`)
+   **Homework Categories (課業類別)**
+   - Lists all current categories (e.g. `閱讀`, `寫作（長文）`).
+   - Click **新增** to add a custom category (e.g. `默書`, `朗讀`).
+   - Click **刪除** to remove an unwanted category.
 
-Custom categories can also be added by editing the dropdown in the `homework.html` file. Contact your system technician if you are not comfortable editing code directly.
+   **Subjects (科目)**
+   - Lists all current subjects (e.g. `中文`, `英文`, `數學`, `常識`).
+   - Click **新增** to add a custom subject (e.g. `普通話`, `體育`).
+   - Click **刪除** to remove an unwanted subject.
+
+> ⚠️ Removing a category or subject does not affect existing Drive folders or already-assigned homework. It only removes the option from the dropdown in the assignment panel.
+
+### Default values
+
+| Subject | Default categories |
+|---------|-------------------|
+| 中文 (Chinese) | 閱讀, 寫作（長文）, 寫作（實用文） |
+| 英文 (English) | (add as needed) |
+| 數學 (Maths) | (add as needed) |
+| 常識 (General Studies) | (add as needed) |
+
+These are the built-in defaults. You may modify them freely through the panel.
 
 ---
 
@@ -254,6 +270,9 @@ Custom categories can also be added by editing the dropdown in the `homework.htm
 | View overdue students | Open 帙雲 - OverdueAssignments sheet |
 | Add a new class | Edit 帙雲 - 繳交紀錄及課業佈置 sheet |
 | Register new students | Edit both 帙雲 - 繳交紀錄及課業佈置 and 帙雲 - 自動共用、收集位址 |
+| Manage homework categories | Control Panel → 課業類別設定 (add/remove via panel) |
+| Manage subjects | Control Panel → 課業類別設定 (Subject section on same page) |
+| Manage auto-share students | Control Panel → 自動共用管理 (add/remove via panel, or edit 自動共用、收集位址 sheet) |
 
 ---
 

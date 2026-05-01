@@ -190,7 +190,7 @@ The submission record and folder structure are driven by the **「帙雲 - 繳�
 | Cell | Content |
 |------|---------|
 | A1 | Class name (e.g. `1A`) — also the tab name |
-| B1, C1, D1 … | Homework names (auto-formatted: `「類別」作業名稱【關鍵詞】`) |
+| B1, C1, D1 … | Homework names (auto-formatted: `「科目」「類別」作業名稱【關鍵詞】`) |
 | B2, C2, D2 … | Deadlines (format: `YYYY-MM-DD HH:MM`) |
 | B3, C3, D3 … | Folder IDs (auto-filled by system — do not edit) |
 | A4, A5, A6 … | Student names (must match exactly what is in the auto-share sheet) |

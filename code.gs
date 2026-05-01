@@ -414,11 +414,14 @@ function createFoldersAndUpdateSheet() {
     const homeworkInfos = [];
     
     homeworkNames.forEach((name, index) => {
-      const match = name ? name.toString().match(/「(.*?)」/) : null;
-      if (match && categories.includes(match[1])) {
-        const title = name.replace(/「.*?」/, '').trim();
-        homeworkByCategory[match[1]].push(title);
-        homeworkInfos.push({ category: match[1], title: title });
+      // Support both "「subject」「category」title" and legacy "「category」title"
+      const subjectCatMatch = name ? name.toString().match(/「[^」]*」「([^」]*)」/) : null;
+      const legacyCatMatch = name ? name.toString().match(/「([^」]*)」/) : null;
+      const categoryValue = subjectCatMatch ? subjectCatMatch[1] : (legacyCatMatch ? legacyCatMatch[1] : null);
+      const title = name ? name.toString().replace(/「[^」]*」/g, '').trim() : '';
+      if (categoryValue && categories.includes(categoryValue)) {
+        homeworkByCategory[categoryValue].push(title);
+        homeworkInfos.push({ category: categoryValue, title: title });
       } else {
         homeworkInfos.push(null);
       }
@@ -606,6 +609,21 @@ function getCategories() {
 function saveCategories(cats) {
   if (!Array.isArray(cats) || cats.length === 0) return { success: false, message: '類別不能為空' };
   PropertiesService.getUserProperties().setProperty('CATEGORIES', JSON.stringify(cats));
+  return { success: true };
+}
+
+// ================== 科目管理 ==================
+function getSubjects() {
+  const stored = PropertiesService.getUserProperties().getProperty('SUBJECTS');
+  if (stored) {
+    try { return JSON.parse(stored); } catch(e) {}
+  }
+  return ['中文', '英文', '數學', '常識'];
+}
+
+function saveSubjects(subjects) {
+  if (!Array.isArray(subjects) || subjects.length === 0) return { success: false, message: '科目不能為空' };
+  PropertiesService.getUserProperties().setProperty('SUBJECTS', JSON.stringify(subjects));
   return { success: true };
 }
 

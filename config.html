@@ -115,6 +115,22 @@
       </p>
     </div>
 
+    <div class="card">
+      <h2>科目設定</h2>
+      <div id="subject-list">載入中...</div>
+
+      <div class="add-row">
+        <input type="text" id="new-subject" placeholder="輸入新科目名稱（例如：普通話）">
+        <button class="add-btn" onclick="addSubject()">新增</button>
+      </div>
+      <div id="subject-status-msg" class="status-msg"></div>
+
+      <p class="note">
+        ⚠️ 科目為布置課業時的頂層分類（例如：中文、英文），可自由增刪。<br>
+        刪除科目不影響已布置的課業，但新布置時將不再提供該選項。
+      </p>
+    </div>
+
     <a href="javascript:history.back()" class="back-btn">← 返回控制面板</a>
   </div>
 
@@ -188,7 +204,80 @@
       setTimeout(function() { el.textContent = ''; el.className = 'status-msg'; }, 3000);
     }
 
-    window.onload = loadCategories;
+    window.onload = function() {
+      loadCategories();
+      loadSubjects();
+    };
+
+    // ---- 科目管理 ----
+    var subjects = [];
+
+    function loadSubjects() {
+      google.script.run
+        .withSuccessHandler(function(list) {
+          subjects = list;
+          renderSubjects();
+        })
+        .withFailureHandler(function(e) {
+          document.getElementById('subject-list').textContent = '載入失敗：' + e.message;
+        })
+        .getSubjects();
+    }
+
+    function renderSubjects() {
+      var list = document.getElementById('subject-list');
+      if (subjects.length === 0) {
+        list.innerHTML = '<p style="color:#aaa;">沒有科目</p>';
+        return;
+      }
+      list.innerHTML = '';
+      subjects.forEach(function(sub, i) {
+        var div = document.createElement('div');
+        div.className = 'category-item';
+        div.innerHTML = '<span>' + sub + '</span>' +
+          '<button class="del-btn" onclick="deleteSubject(' + i + ')">刪除</button>';
+        list.appendChild(div);
+      });
+    }
+
+    function addSubject() {
+      var input = document.getElementById('new-subject');
+      var name = input.value.trim();
+      if (!name) { showSubjectStatus('請輸入科目名稱', 'error'); return; }
+      if (subjects.indexOf(name) !== -1) { showSubjectStatus('此科目已存在', 'error'); return; }
+      subjects.push(name);
+      saveSubjs(function() { input.value = ''; });
+    }
+
+    function deleteSubject(idx) {
+      if (!confirm('確定刪除科目「' + subjects[idx] + '」？')) return;
+      subjects.splice(idx, 1);
+      saveSubjs(null);
+    }
+
+    function saveSubjs(callback) {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            showSubjectStatus('✅ 已儲存', 'success');
+            renderSubjects();
+            if (callback) callback();
+          } else {
+            showSubjectStatus('❌ ' + result.message, 'error');
+          }
+        })
+        .withFailureHandler(function(e) {
+          showSubjectStatus('❌ 儲存失敗：' + e.message, 'error');
+        })
+        .saveSubjects(subjects);
+    }
+
+    function showSubjectStatus(msg, type) {
+      var el = document.getElementById('subject-status-msg');
+      el.textContent = msg;
+      el.className = 'status-msg ' + type;
+      setTimeout(function() { el.textContent = ''; el.className = 'status-msg'; }, 3000);
+    }
   </script>
 </body>
 </html>
