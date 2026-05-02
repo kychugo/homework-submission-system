@@ -32,7 +32,10 @@
 │  record.gs      — 繳交紀錄數據提供者                  │
 │  Index.html     — 老師控制面板介面                    │
 │  homework.html  — 布置課業表格介面                    │
+│  student.html   — 學生繳交介面                       │
 │  record.html    — 繳交狀況儀表板介面                  │
+│  config.html    — 類別/科目設定介面                   │
+│  autoshare.html — 自動共用管理介面                    │
 └──────────────────────────┬─────────────────────────────┘
                            │ 讀取 / 寫入
            ┌───────────────┼───────────────┐
@@ -71,7 +74,10 @@
 | `record.gs` | 為繳交紀錄儀表板模板提供 `classData` |
 | `Index.html` | 老師控制面板 — Web App 根網址渲染 |
 | `homework.html` | 布置課業表格 — 在 `?page=homework` 渲染 |
+| `student.html` | 學生繳交介面 — 在 `?page=submit` 渲染 |
 | `record.html` | 繳交狀況表格 — 在 `?page=record` 渲染 |
+| `config.html` | 類別/科目設定面板 — 在 `?page=config` 渲染 |
+| `autoshare.html` | 自動共用管理面板 — 在 `?page=autoshare` 渲染 |
 
 ### 使用者屬性（按 Google 帳號儲存）
 

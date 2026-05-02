@@ -32,7 +32,10 @@
 │  record.gs      — Record-view data provider           │
 │  Index.html     — Teacher Control Panel UI            │
 │  homework.html  — Homework assignment UI              │
+│  student.html   — Student submission panel UI         │
 │  record.html    — Submission status dashboard UI      │
+│  config.html    — Category/subject settings UI        │
+│  autoshare.html — Auto-share management UI            │
 └──────────────────────────┬─────────────────────────────┘
                            │ reads / writes
            ┌───────────────┼───────────────┐
@@ -71,7 +74,10 @@
 | `record.gs` | Supplies `classData` to the record dashboard template |
 | `Index.html` | Teacher control panel — rendered at Web App root URL |
 | `homework.html` | Homework assignment form — rendered at `?page=homework` |
+| `student.html` | Student submission panel — rendered at `?page=submit` |
 | `record.html` | Submission status table — rendered at `?page=record` |
+| `config.html` | Category/subject settings panel — rendered at `?page=config` |
+| `autoshare.html` | Auto-share management panel — rendered at `?page=autoshare` |
 
 ### User Properties (stored per Google account)
 
