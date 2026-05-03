@@ -249,7 +249,7 @@
     // ── State ────────────────────────────────────────────────────────────────
     let formData = { classes: [], students: {}, homeworks: {} };
     let selectedFiles = [];
-    const MAX_FILE_SIZE = 48 * 1024 * 1024; // 48 MB per file (Apps Script limit)
+    const MAX_FILE_SIZE = 48 * 1024 * 1024; // 48 MB — safety buffer below the 50 MB Apps Script blob limit
 
     // ── Init ─────────────────────────────────────────────────────────────────
     window.onload = function() {

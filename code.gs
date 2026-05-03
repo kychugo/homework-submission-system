@@ -475,9 +475,19 @@ function parseHomeworkName(name) {
   const nameStr = name.toString();
   const matches = [...nameStr.matchAll(/「(.*?)」/g)];
   if (matches.length >= 2) {
-    return { category: matches[1][1], title: nameStr.replace(/「.*?」「.*?」/, '').trim() };
+    // New format: 「subject」「category」title【keyword】
+    // Remove both matched 「...」 tokens using their exact matched strings
+    const prefix = matches[0][0] + matches[1][0];
+    const title = nameStr.startsWith(prefix)
+      ? nameStr.slice(prefix.length).trim()
+      : nameStr.replace(matches[0][0], '').replace(matches[1][0], '').trim();
+    return { category: matches[1][1], title: title };
   } else if (matches.length === 1) {
-    return { category: matches[0][1], title: nameStr.replace(/「.*?」/, '').trim() };
+    // Old format: 「category」title【keyword】
+    const title = nameStr.startsWith(matches[0][0])
+      ? nameStr.slice(matches[0][0].length).trim()
+      : nameStr.replace(matches[0][0], '').trim();
+    return { category: matches[0][1], title: title };
   }
   return null;
 }

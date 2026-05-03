@@ -372,7 +372,14 @@
 
     function syncPickerFromText(value) {
       const regex = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/;
-      if (regex.test(value)) {
+      const m = regex.exec(value);
+      if (!m) return;
+      // Validate actual date values before setting picker
+      const year = parseInt(m[1], 10), month = parseInt(m[2], 10) - 1;
+      const day = parseInt(m[3], 10), hour = parseInt(m[4], 10), minute = parseInt(m[5], 10);
+      const d = new Date(year, month, day, hour, minute);
+      if (d.getFullYear() === year && d.getMonth() === month && d.getDate() === day &&
+          d.getHours() === hour && d.getMinutes() === minute) {
         deadlinePicker.value = value.replace(' ', 'T');
       }
     }
