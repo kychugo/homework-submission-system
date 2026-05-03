@@ -57,6 +57,17 @@
       gap: 30px;
     }
 
+    /* Language toggle */
+    .lang-btn {
+      position: fixed; top: 12px; right: 16px;
+      background: #2471a3; color: #fff;
+      border: none; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px;
+      cursor: pointer; z-index: 1001;
+      transition: background 0.2s;
+    }
+    .lang-btn:hover { background: #1a5a8a; }
+
     .form-container {
       background: rgba(51, 51, 51, 0.9); /* 深灰色 */
       border-radius: 20px;
@@ -202,35 +213,36 @@
   </style>
 </head>
 <body>
+  <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
   <div class="header">
-    <h1>布置課業</h1>
+    <h1 id="page-title">布置課業</h1>
   </div>
 
   <div class="main-content">
     <div class="form-container">
-      <label for="class-select">選擇班別：</label>
+      <label for="class-select" id="lbl-class">選擇班別：</label>
       <select id="class-select"></select>
 
-      <label for="subject-select">選擇科目：</label>
+      <label for="subject-select" id="lbl-subject">選擇科目：</label>
       <select id="subject-select"></select>
 
-      <label for="category-select">選擇課業類別：</label>
+      <label for="category-select" id="lbl-category">選擇課業類別：</label>
       <select id="category-select"></select>
 
-      <label for="homework-name">課業名稱：</label>
+      <label for="homework-name" id="lbl-hwname">課業名稱：</label>
       <input type="text" id="homework-name" placeholder="例如：藏在泥土的寶物">
 
-      <label for="keyword">關鍵詞：</label>
+      <label for="keyword" id="lbl-keyword">關鍵詞：</label>
       <input type="text" id="keyword" placeholder="例如：寶物">
 
-      <label>截止日期和時間：</label>
+      <label id="lbl-deadline">截止日期和時間：</label>
       <div class="deadline-row">
         <div>
-          <label for="deadline-picker" style="font-size:14px; color:#aaa;">📅 日期時間選擇器</label>
+          <label for="deadline-picker" id="lbl-picker" style="font-size:14px; color:#aaa;">📅 日期時間選擇器</label>
           <input type="datetime-local" id="deadline-picker">
         </div>
         <div>
-          <label for="deadline" style="font-size:14px; color:#aaa;">✏️ 手動輸入（年-月-日 時:分）</label>
+          <label for="deadline" id="lbl-manual" style="font-size:14px; color:#aaa;">✏️ 手動輸入（年-月-日 時:分）</label>
           <input type="text" id="deadline" placeholder="2025-04-24 23:59">
         </div>
       </div>
@@ -245,7 +257,7 @@
   <!-- 確認視窗 -->
   <div id="confirm-modal" class="modal">
     <div class="modal-content">
-      <h2>確認課業資料</h2>
+      <h2 id="modal-title">確認課業資料</h2>
       <p id="confirm-class"></p>
       <p id="confirm-subject"></p>
       <p id="confirm-category"></p>
@@ -260,6 +272,78 @@
   </div>
 
   <script>
+    // ── Language switcher ─────────────────────────────────────────────────
+    const I18N = {
+      zh: {
+        pageTitle: '布置課業',
+        lblClass: '選擇班別：', lblSubject: '選擇科目：', lblCategory: '選擇課業類別：',
+        lblHwname: '課業名稱：', phHwname: '例如：藏在泥土的寶物',
+        lblKeyword: '關鍵詞：', phKeyword: '例如：寶物',
+        lblDeadline: '截止日期和時間：',
+        lblPicker: '📅 日期時間選擇器',
+        lblManual: '✏️ 手動輸入（年-月-日 時:分）', phManual: '2025-04-24 23:59',
+        btnSubmit: '提交', modalTitle: '確認課業資料',
+        btnConfirm: '確定', btnCancel: '取消',
+        hwListTitle: '<h3>現有課業</h3>',
+        deadlineLabel: '截止日期：', noDeadline: '未設定',
+        errAll: '請填寫所有欄位',
+        errKeyword: '關鍵詞必須是課業名稱的一部分',
+        errDateFmt: '截止日期格式錯誤，請使用「年-月-日 時:分」，例如「2025-04-24 23:59」',
+        errDateInvalid: '無效的日期或時間',
+        errDateFmtInline: '格式錯誤，請使用「年-月-日 時:分」，例如「2025-04-24 23:59」',
+        successMsg: '課業已成功添加',
+        confirmPrefix: { class: '班別：', subject: '科目：', category: '課業類別：', name: '課業名稱：', keyword: '關鍵詞：', deadline: '截止日期：' }
+      },
+      en: {
+        pageTitle: 'Assign Homework',
+        lblClass: 'Select Class:', lblSubject: 'Select Subject:', lblCategory: 'Select Category:',
+        lblHwname: 'Homework Name:', phHwname: 'e.g. Treasure in the Soil',
+        lblKeyword: 'Keyword:', phKeyword: 'e.g. treasure',
+        lblDeadline: 'Deadline:',
+        lblPicker: '📅 Date & Time Picker',
+        lblManual: '✏️ Manual Entry (YYYY-MM-DD HH:MM)', phManual: '2025-04-24 23:59',
+        btnSubmit: 'Submit', modalTitle: 'Confirm Homework Details',
+        btnConfirm: 'Confirm', btnCancel: 'Cancel',
+        hwListTitle: '<h3>Existing Homework</h3>',
+        deadlineLabel: 'Deadline: ', noDeadline: 'Not set',
+        errAll: 'Please fill in all fields',
+        errKeyword: 'Keyword must be part of the homework name',
+        errDateFmt: 'Invalid format. Use YYYY-MM-DD HH:MM, e.g. 2025-04-24 23:59',
+        errDateInvalid: 'Invalid date or time',
+        errDateFmtInline: 'Invalid format. Use YYYY-MM-DD HH:MM',
+        successMsg: 'Homework added successfully',
+        confirmPrefix: { class: 'Class: ', subject: 'Subject: ', category: 'Category: ', name: 'Homework: ', keyword: 'Keyword: ', deadline: 'Deadline: ' }
+      }
+    };
+    let currentLang = localStorage.getItem('zhiyun_lang') || 'zh';
+
+    function applyLang() {
+      const t = I18N[currentLang];
+      document.getElementById('page-title').textContent = t.pageTitle;
+      document.getElementById('lbl-class').textContent    = t.lblClass;
+      document.getElementById('lbl-subject').textContent  = t.lblSubject;
+      document.getElementById('lbl-category').textContent = t.lblCategory;
+      document.getElementById('lbl-hwname').textContent   = t.lblHwname;
+      document.getElementById('homework-name').placeholder = t.phHwname;
+      document.getElementById('lbl-keyword').textContent  = t.lblKeyword;
+      document.getElementById('keyword').placeholder      = t.phKeyword;
+      document.getElementById('lbl-deadline').textContent = t.lblDeadline;
+      document.getElementById('lbl-picker').textContent   = t.lblPicker;
+      document.getElementById('lbl-manual').textContent   = t.lblManual;
+      document.getElementById('deadline').placeholder     = t.phManual;
+      document.getElementById('submit-btn').textContent   = t.btnSubmit;
+      document.getElementById('modal-title').textContent  = t.modalTitle;
+      document.getElementById('confirm-btn').textContent  = t.btnConfirm;
+      document.getElementById('cancel-btn').textContent   = t.btnCancel;
+      document.getElementById('lang-btn').textContent = currentLang === 'zh' ? 'EN' : '中文';
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      localStorage.setItem('zhiyun_lang', currentLang);
+      applyLang();
+    }
+
     let subjectConfig = { subjects: [], categories: {} };
 
     // 載入班別選項、科目設定並初始化頁面
@@ -332,7 +416,7 @@
     }
 
     // 頁面載入時初始化
-    window.onload = loadClassesAndData;
+    window.onload = function() { applyLang(); loadClassesAndData(); };
 
     // 當班別改變時，更新課業列表
     document.getElementById('class-select').addEventListener('change', function() {

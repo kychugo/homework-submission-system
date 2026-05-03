@@ -102,39 +102,51 @@
 
     .loading { color: #f0a500; font-style: italic; }
     .empty-row td { text-align: center; color: #777; padding: 24px; }
+
+    /* Language toggle */
+    .lang-btn {
+      position: fixed; top: 12px; right: 16px;
+      background: #2e86c1; color: #fff;
+      border: none; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px;
+      cursor: pointer; z-index: 999;
+      transition: background 0.2s;
+    }
+    .lang-btn:hover { background: #1a6fa5; }
   </style>
 </head>
 <body>
+  <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
   <div class="header">
-    <h1>🔗 自動共用管理</h1>
-    <p>管理學生帳號與資料夾共用。亦可直接在「帙雲 - 自動共用、收集位址」試算表中編輯。</p>
+    <h1 id="page-title">🔗 自動共用管理</h1>
+    <p id="page-desc">管理學生帳號與資料夾共用。亦可直接在「帙雲 - 自動共用、收集位址」試算表中編輯。</p>
   </div>
 
   <div class="main-content">
-    <div class="notice">
+    <div class="notice" id="notice-text">
       ℹ️ 在此新增或刪除學生後，點擊「立即執行自動共用」，系統將把學生的「已發還課業」資料夾共用給對應 Google 帳號，並填寫資料夾網址。
     </div>
 
     <!-- 新增學生 -->
     <div class="toolbar">
       <div>
-        <label for="new-id">學號</label>
-        <input type="text" id="new-id" placeholder="例如：21001">
+        <label for="new-id" data-i18n="labelId">學號</label>
+        <input type="text" id="new-id" data-i18n-ph="phId" placeholder="例如：21001">
       </div>
       <div>
-        <label for="new-class">班別</label>
-        <input type="text" id="new-class" placeholder="例如：1A">
+        <label for="new-class" data-i18n="labelClass">班別</label>
+        <input type="text" id="new-class" data-i18n-ph="phClass" placeholder="例如：1A">
       </div>
       <div>
-        <label for="new-name">姓名</label>
-        <input type="text" id="new-name" placeholder="例如：陳大文">
+        <label for="new-name" data-i18n="labelName">姓名</label>
+        <input type="text" id="new-name" data-i18n-ph="phName" placeholder="例如：陳大文">
       </div>
-      <button class="btn btn-blue" onclick="addStudent()" style="margin-bottom:0;">➕ 新增學生</button>
+      <button class="btn btn-blue" onclick="addStudent()" style="margin-bottom:0;" data-i18n="btnAdd">➕ 新增學生</button>
     </div>
 
     <!-- 執行共用 -->
     <div class="share-btn-row">
-      <button class="btn btn-teal" id="run-btn" onclick="runAutoShare()">▶ 立即執行自動共用</button>
+      <button class="btn btn-teal" id="run-btn" onclick="runAutoShare()" data-i18n="btnRun">▶ 立即執行自動共用</button>
       <div id="run-status"></div>
     </div>
 
@@ -142,20 +154,79 @@
     <table>
       <thead>
         <tr>
-          <th>學號</th>
-          <th>班別</th>
-          <th>姓名</th>
-          <th>已發還課業資料夾</th>
-          <th>操作</th>
+          <th data-i18n="colId">學號</th>
+          <th data-i18n="colClass">班別</th>
+          <th data-i18n="colName">姓名</th>
+          <th data-i18n="colFolder">已發還課業資料夾</th>
+          <th data-i18n="colAction">操作</th>
         </tr>
       </thead>
       <tbody id="student-table-body">
-        <tr class="empty-row"><td colspan="5">載入中…</td></tr>
+        <tr class="empty-row"><td colspan="5" id="loading-msg">載入中…</td></tr>
       </tbody>
     </table>
   </div>
 
   <script>
+    // ── Language switcher ─────────────────────────────────────────────────
+    const I18N = {
+      zh: {
+        pageTitle: '🔗 自動共用管理',
+        pageDesc: '管理學生帳號與資料夾共用。亦可直接在「帙雲 - 自動共用、收集位址」試算表中編輯。',
+        noticeText: 'ℹ️ 在此新增或刪除學生後，點擊「立即執行自動共用」，系統將把學生的「已發還課業」資料夾共用給對應 Google 帳號，並填寫資料夾網址。',
+        labelId: '學號', phId: '例如：21001',
+        labelClass: '班別', phClass: '例如：1A',
+        labelName: '姓名', phName: '例如：陳大文',
+        btnAdd: '➕ 新增學生', btnRun: '▶ 立即執行自動共用',
+        colId: '學號', colClass: '班別', colName: '姓名',
+        colFolder: '已發還課業資料夾', colAction: '操作',
+        noStudents: '尚未新增任何學生。', loading: '載入中…',
+        running: '⏳ 執行中…', runningMsg: '正在共用資料夾，請稍候…',
+        btnDelete: '🗑️ 刪除', noShared: '（尚未共用）',
+        confirmDelete: '確定刪除學號「{id}」的學生？\n（此操作不會撤銷已共用的資料夾權限）',
+        errFill: '請填寫學號、班別和姓名'
+      },
+      en: {
+        pageTitle: '🔗 Auto-Share Management',
+        pageDesc: 'Manage student accounts and folder sharing. You can also edit directly in the "Auto-Share" spreadsheet.',
+        noticeText: 'ℹ️ After adding or removing students, click "Run Auto-Share" to share each student\'s returned-work folder and record the URL.',
+        labelId: 'Student ID', phId: 'e.g. 21001',
+        labelClass: 'Class', phClass: 'e.g. 1A',
+        labelName: 'Name', phName: 'e.g. Chan Tai Man',
+        btnAdd: '➕ Add Student', btnRun: '▶ Run Auto-Share Now',
+        colId: 'Student ID', colClass: 'Class', colName: 'Name',
+        colFolder: 'Returned Work Folder', colAction: 'Action',
+        noStudents: 'No students added yet.', loading: 'Loading…',
+        running: '⏳ Running…', runningMsg: 'Sharing folders, please wait…',
+        btnDelete: '🗑️ Delete', noShared: '(Not shared yet)',
+        confirmDelete: 'Delete student with ID "{id}"?\n(This will not revoke already-shared folder permissions.)',
+        errFill: 'Please fill in Student ID, Class and Name'
+      }
+    };
+    let currentLang = localStorage.getItem('zhiyun_lang') || 'zh';
+
+    function applyLang() {
+      const t = I18N[currentLang];
+      document.getElementById('page-title').textContent  = t.pageTitle;
+      document.getElementById('page-desc').textContent   = t.pageDesc;
+      document.getElementById('notice-text').textContent = t.noticeText;
+      document.querySelectorAll('[data-i18n]').forEach(function(el) {
+        el.textContent = t[el.getAttribute('data-i18n')] || el.textContent;
+      });
+      document.querySelectorAll('[data-i18n-ph]').forEach(function(el) {
+        el.placeholder = t[el.getAttribute('data-i18n-ph')] || el.placeholder;
+      });
+      document.getElementById('lang-btn').textContent = currentLang === 'zh' ? 'EN' : '中文';
+      // Re-render table so delete buttons use the right language
+      loadStudents();
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      localStorage.setItem('zhiyun_lang', currentLang);
+      applyLang();
+    }
+
     // ── Load students from backend ────────────────────────────────────────
     function loadStudents() {
       google.script.run
@@ -163,7 +234,7 @@
           renderTable(rows);
         })
         .withFailureHandler(function(err) {
-          setTableMessage('載入失敗：' + err.message, true);
+          setTableMessage(I18N[currentLang].loading.replace('…','') + ' failed: ' + err.message, true);
         })
         .getAutoShareData();
     }
@@ -171,20 +242,21 @@
     // ── Render student table ─────────────────────────────────────────────
     function renderTable(rows) {
       const tbody = document.getElementById('student-table-body');
+      const t = I18N[currentLang];
       if (!rows || rows.length === 0) {
-        setTableMessage('尚未新增任何學生。');
+        setTableMessage(t.noStudents);
         return;
       }
       tbody.innerHTML = rows.map(function(r) {
         const urlCell = r.folderUrl
-          ? `<a href="${escHtml(r.folderUrl)}" target="_blank" title="${escHtml(r.folderUrl)}">🔗 開啟資料夾</a>`
-          : '<span style="color:#777;">（尚未共用）</span>';
+          ? `<a href="${escHtml(r.folderUrl)}" target="_blank" title="${escHtml(r.folderUrl)}">🔗 ${currentLang === 'en' ? 'Open Folder' : '開啟資料夾'}</a>`
+          : `<span style="color:#777;">${t.noShared}</span>`;
         return `<tr>
           <td>${escHtml(r.studentId)}</td>
           <td>${escHtml(r.className)}</td>
           <td>${escHtml(r.name)}</td>
           <td class="url-cell">${urlCell}</td>
-          <td><button class="btn btn-red" onclick="deleteStudent('${escJs(r.studentId)}')">🗑️ 刪除</button></td>
+          <td><button class="btn btn-red" onclick="deleteStudent('${escJs(r.studentId)}')">${t.btnDelete}</button></td>
         </tr>`;
       }).join('');
     }
@@ -196,12 +268,13 @@
 
     // ── Add student ───────────────────────────────────────────────────────
     function addStudent() {
+      const t = I18N[currentLang];
       const studentId = document.getElementById('new-id').value.trim();
       const className = document.getElementById('new-class').value.trim();
       const name      = document.getElementById('new-name').value.trim();
-      if (!studentId || !className || !name) { alert('請填寫學號、班別和姓名'); return; }
+      if (!studentId || !className || !name) { alert(t.errFill); return; }
 
-      setTableMessage('處理中…', false);
+      setTableMessage(t.loading, false);
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
@@ -215,7 +288,7 @@
           }
         })
         .withFailureHandler(function(err) {
-          alert('❌ 錯誤：' + err.message);
+          alert('❌ ' + err.message);
           loadStudents();
         })
         .saveAutoShareRow(studentId, className, name);
@@ -223,15 +296,17 @@
 
     // ── Delete student ────────────────────────────────────────────────────
     function deleteStudent(studentId) {
-      if (!confirm('確定刪除學號「' + studentId + '」的學生？\n（此操作不會撤銷已共用的資料夾權限）')) return;
-      setTableMessage('處理中…', false);
+      const t = I18N[currentLang];
+      const msg = t.confirmDelete.replace('{id}', studentId);
+      if (!confirm(msg)) return;
+      setTableMessage(t.loading, false);
       google.script.run
         .withSuccessHandler(function(result) {
           alert(result.message);
           loadStudents();
         })
         .withFailureHandler(function(err) {
-          alert('❌ 錯誤：' + err.message);
+          alert('❌ ' + err.message);
           loadStudents();
         })
         .deleteAutoShareRow(studentId);
@@ -239,26 +314,27 @@
 
     // ── Run auto-share ────────────────────────────────────────────────────
     function runAutoShare() {
-      const btn      = document.getElementById('run-btn');
+      const t   = I18N[currentLang];
+      const btn = document.getElementById('run-btn');
       const statusEl = document.getElementById('run-status');
-      btn.disabled   = true;
-      btn.textContent = '⏳ 執行中…';
+      btn.disabled    = true;
+      btn.textContent = t.running;
       statusEl.className   = 'loading';
-      statusEl.textContent = '正在共用資料夾，請稍候…';
+      statusEl.textContent = t.runningMsg;
 
       google.script.run
         .withSuccessHandler(function(result) {
           statusEl.className   = result.success ? 'success' : 'error';
           statusEl.textContent = result.message;
-          btn.disabled   = false;
-          btn.textContent = '▶ 立即執行自動共用';
-          loadStudents(); // Refresh URLs
+          btn.disabled    = false;
+          btn.textContent = t.btnRun;
+          loadStudents();
         })
         .withFailureHandler(function(err) {
           statusEl.className   = 'error';
-          statusEl.textContent = '❌ 錯誤：' + err.message;
-          btn.disabled   = false;
-          btn.textContent = '▶ 立即執行自動共用';
+          statusEl.textContent = '❌ ' + err.message;
+          btn.disabled    = false;
+          btn.textContent = t.btnRun;
         })
         .triggerAutoShare();
     }
@@ -271,7 +347,7 @@
       return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     }
 
-    window.onload = loadStudents;
+    window.onload = function() { applyLang(); };
   </script>
 </body>
 </html>

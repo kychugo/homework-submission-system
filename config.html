@@ -148,23 +148,35 @@
     }
     .success { color: #2ecc71; }
     .error   { color: #e74c3c; }
+
+    /* Language toggle */
+    .lang-btn {
+      position: fixed; top: 12px; right: 16px;
+      background: #2e86c1; color: #fff;
+      border: none; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px;
+      cursor: pointer; z-index: 999;
+      transition: background 0.2s;
+    }
+    .lang-btn:hover { background: #1a6fa5; }
   </style>
 </head>
 <body>
+  <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
   <div class="header">
-    <h1>⚙️ 科目與類別設定</h1>
-    <p>每個科目可獨立設定課業類別。設定完成後請按「儲存設定」。</p>
+    <h1 id="page-title">⚙️ 科目與類別設定</h1>
+    <p id="page-desc">每個科目可獨立設定課業類別。設定完成後請按「儲存設定」。</p>
   </div>
 
   <div class="main-content">
-    <div class="notice">
+    <div class="notice" id="notice-text">
       ℹ️ 此設定僅影響「布置課業」面板的下拉選單。已佈置的舊課業不受影響。
     </div>
 
     <!-- 新增科目 -->
     <div class="add-subject-bar">
-      <input type="text" id="new-subject-input" placeholder="輸入新科目名稱，例如：英文">
-      <button class="btn btn-blue" onclick="addSubject()">➕ 新增科目</button>
+      <input type="text" id="new-subject-input" data-i18n-ph="phSubject" placeholder="輸入新科目名稱，例如：英文">
+      <button class="btn btn-blue" onclick="addSubject()" id="btn-add-subject">➕ 新增科目</button>
     </div>
 
     <!-- 科目卡片列表 -->
@@ -172,12 +184,61 @@
 
     <!-- 儲存按鈕 -->
     <div style="text-align:center;">
-      <button class="btn btn-save" onclick="saveConfig()">💾 儲存設定</button>
+      <button class="btn btn-save" onclick="saveConfig()" id="btn-save">💾 儲存設定</button>
       <div id="save-status"></div>
     </div>
   </div>
 
   <script>
+    // ── Language switcher ─────────────────────────────────────────────────
+    const I18N = {
+      zh: {
+        pageTitle: '⚙️ 科目與類別設定',
+        pageDesc: '每個科目可獨立設定課業類別。設定完成後請按「儲存設定」。',
+        noticeText: 'ℹ️ 此設定僅影響「布置課業」面板的下拉選單。已佈置的舊課業不受影響。',
+        phSubject: '輸入新科目名稱，例如：英文',
+        btnAddSubject: '➕ 新增科目', btnSave: '💾 儲存設定',
+        btnDelSubject: '🗑️ 刪除科目', btnAddCat: '➕ 新增類別', btnDelCat: '🗑️ 刪除',
+        phCat: '輸入新類別名稱', noCats: '（尚未新增類別）',
+        saving: '儲存中…',
+        errSubjectEmpty: '請輸入科目名稱', errSubjectDup: '此科目已存在',
+        errCatEmpty: '請輸入類別名稱', errCatDup: '此類別已存在',
+        confirmDelSubject: '確定刪除科目「{s}」及其所有類別？'
+      },
+      en: {
+        pageTitle: '⚙️ Subject & Category Settings',
+        pageDesc: 'Configure categories for each subject. Click "Save" when done.',
+        noticeText: 'ℹ️ This only affects the dropdowns in "Assign Homework". Existing assignments are not affected.',
+        phSubject: 'New subject name, e.g. English',
+        btnAddSubject: '➕ Add Subject', btnSave: '💾 Save Settings',
+        btnDelSubject: '🗑️ Delete Subject', btnAddCat: '➕ Add Category', btnDelCat: '🗑️ Delete',
+        phCat: 'New category name', noCats: '(No categories yet)',
+        saving: 'Saving…',
+        errSubjectEmpty: 'Please enter a subject name', errSubjectDup: 'Subject already exists',
+        errCatEmpty: 'Please enter a category name', errCatDup: 'Category already exists',
+        confirmDelSubject: 'Delete subject "{s}" and all its categories?'
+      }
+    };
+    let currentLang = localStorage.getItem('zhiyun_lang') || 'zh';
+
+    function applyLang() {
+      const t = I18N[currentLang];
+      document.getElementById('page-title').textContent  = t.pageTitle;
+      document.getElementById('page-desc').textContent   = t.pageDesc;
+      document.getElementById('notice-text').textContent = t.noticeText;
+      document.getElementById('new-subject-input').placeholder = t.phSubject;
+      document.getElementById('btn-add-subject').textContent   = t.btnAddSubject;
+      document.getElementById('btn-save').textContent          = t.btnSave;
+      document.getElementById('lang-btn').textContent = currentLang === 'zh' ? 'EN' : '中文';
+      renderSubjects();
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      localStorage.setItem('zhiyun_lang', currentLang);
+      applyLang();
+    }
+
     // In-memory config object
     let config = { subjects: [], categories: {} };
 
@@ -186,17 +247,18 @@
       google.script.run
         .withSuccessHandler(function(c) {
           config = c;
-          renderSubjects();
+          applyLang();
         })
         .withFailureHandler(function(err) {
           document.getElementById('subjects-container').innerHTML =
-            '<p style="color:#e74c3c;">載入失敗：' + err.message + '</p>';
+            '<p style="color:#e74c3c;">Load failed: ' + err.message + '</p>';
         })
         .getSubjectConfig();
     }
 
     // ── Render all subject cards ─────────────────────────────────────────
     function renderSubjects() {
+      const t = I18N[currentLang];
       const container = document.getElementById('subjects-container');
       container.innerHTML = '';
       config.subjects.forEach(function(subject, sIdx) {
@@ -208,20 +270,20 @@
         let catItems = cats.map(function(cat, cIdx) {
           return `<li>
             <span class="cat-name">${escHtml(cat)}</span>
-            <button class="btn btn-red" onclick="deleteCategory('${escJs(subject)}', ${cIdx})">🗑️ 刪除</button>
+            <button class="btn btn-red" onclick="deleteCategory('${escJs(subject)}', ${cIdx})">${t.btnDelCat}</button>
           </li>`;
         }).join('');
 
         card.innerHTML = `
           <div class="subject-header">
             <span class="subject-name">${escHtml(subject)}</span>
-            <button class="btn btn-red" onclick="deleteSubject(${sIdx})">🗑️ 刪除科目</button>
+            <button class="btn btn-red" onclick="deleteSubject(${sIdx})">${t.btnDelSubject}</button>
           </div>
           <div class="subject-body">
-            <ul class="cat-list">${catItems || '<li style="color:#888; font-size:14px;">（尚未新增類別）</li>'}</ul>
+            <ul class="cat-list">${catItems || `<li style="color:#888; font-size:14px;">${t.noCats}</li>`}</ul>
             <div class="add-cat-row">
-              <input type="text" id="new-cat-${sIdx}" placeholder="輸入新類別名稱">
-              <button class="btn btn-green" onclick="addCategory('${escJs(subject)}', ${sIdx})">➕ 新增類別</button>
+              <input type="text" id="new-cat-${sIdx}" placeholder="${escHtml(t.phCat)}">
+              <button class="btn btn-green" onclick="addCategory('${escJs(subject)}', ${sIdx})">${t.btnAddCat}</button>
             </div>
           </div>`;
         container.appendChild(card);
@@ -230,10 +292,11 @@
 
     // ── Add a new subject ────────────────────────────────────────────────
     function addSubject() {
+      const t = I18N[currentLang];
       const input = document.getElementById('new-subject-input');
       const name = input.value.trim();
-      if (!name) { alert('請輸入科目名稱'); return; }
-      if (config.subjects.includes(name)) { alert('此科目已存在'); return; }
+      if (!name) { alert(t.errSubjectEmpty); return; }
+      if (config.subjects.includes(name)) { alert(t.errSubjectDup); return; }
       config.subjects.push(name);
       if (!config.categories[name]) config.categories[name] = [];
       input.value = '';
@@ -242,8 +305,9 @@
 
     // ── Delete a subject ─────────────────────────────────────────────────
     function deleteSubject(sIdx) {
+      const t = I18N[currentLang];
       const subj = config.subjects[sIdx];
-      if (!confirm(`確定刪除科目「${subj}」及其所有類別？`)) return;
+      if (!confirm(t.confirmDelSubject.replace('{s}', subj))) return;
       delete config.categories[subj];
       config.subjects.splice(sIdx, 1);
       renderSubjects();
@@ -251,11 +315,12 @@
 
     // ── Add a category to a subject ──────────────────────────────────────
     function addCategory(subject, sIdx) {
+      const t = I18N[currentLang];
       const input = document.getElementById('new-cat-' + sIdx);
       const name = input.value.trim();
-      if (!name) { alert('請輸入類別名稱'); return; }
+      if (!name) { alert(t.errCatEmpty); return; }
       if (!config.categories[subject]) config.categories[subject] = [];
-      if (config.categories[subject].includes(name)) { alert('此類別已存在'); return; }
+      if (config.categories[subject].includes(name)) { alert(t.errCatDup); return; }
       config.categories[subject].push(name);
       input.value = '';
       renderSubjects();
@@ -269,9 +334,10 @@
 
     // ── Save config to backend ───────────────────────────────────────────
     function saveConfig() {
+      const t = I18N[currentLang];
       const statusEl = document.getElementById('save-status');
       statusEl.className = '';
-      statusEl.textContent = '儲存中…';
+      statusEl.textContent = t.saving;
       google.script.run
         .withSuccessHandler(function(result) {
           statusEl.className = result.success ? 'success' : 'error';
@@ -279,7 +345,7 @@
         })
         .withFailureHandler(function(err) {
           statusEl.className = 'error';
-          statusEl.textContent = '❌ 儲存失敗：' + err.message;
+          statusEl.textContent = '❌ ' + err.message;
         })
         .saveSubjectConfig(config);
     }

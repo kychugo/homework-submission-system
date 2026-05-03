@@ -181,7 +181,7 @@ function manualShare() {
   ui.alert("⏳ 系統正在為尚未設定的學生共用資料夾，並填寫位址，請按「確定」並稍候...");
   try {
     autoShareStudentFolders(); 
-    ui.alert("✅ 共用權限已更新完畢！\n請查看「自動共用、收集位址」表中的C欄。");
+    ui.alert("✅ 共用權限已更新完畢！\n請查看「自動共用、收集位址」表中的D欄。");
   } catch (e) {
     ui.alert("❌ 發生錯誤：" + e.message);
   }
@@ -357,7 +357,6 @@ function sortStudentAssignments() {
   const targetFolderId = props.getProperty('PENDING_FOLDER_ID');
   if(!sourceFolderId || !targetFolderId) return;
 
-  const supportedMimeTypes = [MimeType.PDF, MimeType.JPEG, MimeType.PNG, MimeType.GIF, MimeType.BMP, MimeType.WEBP];
   const classFolders = getClassFoldersRecursive(targetFolderId);
   const sourceFolder = DriveApp.getFolderById(sourceFolderId);
   const allFiles = sourceFolder.getFiles();
@@ -365,7 +364,6 @@ function sortStudentAssignments() {
   while (allFiles.hasNext()) {
     const file = allFiles.next();
     const fileName = file.getName();
-    if (!supportedMimeTypes.includes(file.getMimeType())) continue;
     
     const classMatch = fileName.match(/(\d+[A-Z])/);
     if (!classMatch) continue;
@@ -590,8 +588,16 @@ function getOrCreateFolder(parentId, folderName) {
 
 function updateSubmissionStatus(sheet, className, studentNames, homeworkNames, deadlines, homeworkFolderIds) {
   if (studentNames.length === 0 || homeworkNames.length === 0) return;
-  const submissionData = Array.from({length: studentNames.length}, () => Array(homeworkNames.length).fill({background: '#ffffff', value: ''}));
-  
+
+  // Read existing values and backgrounds so we can preserve "已繳交"/"遲交"
+  // status for files that have already been moved out of the pending folder.
+  const existingRange  = sheet.getRange(4, 2, studentNames.length, homeworkNames.length);
+  const existingValues = existingRange.getValues();
+  const existingBg     = existingRange.getBackgrounds();
+
+  const newValues = existingValues.map(r => r.slice());
+  const newBg     = existingBg.map(r => r.slice());
+
   homeworkFolderIds.forEach((folderId, colIndex) => {
     if (!folderId) return;
     try {
@@ -605,17 +611,24 @@ function updateSubmissionStatus(sheet, className, studentNames, homeworkNames, d
         const fileKey = Object.keys(fileMap).find(n => n.includes(student));
         if (fileKey) {
           const late = fileMap[fileKey].getDateCreated() > new Date(deadlines[colIndex]);
-          submissionData[rowIndex][colIndex] = { background: late ? '#fff2cc' : '#d9ead3', value: late ? '遲交' : '已繳交' };
+          newValues[rowIndex][colIndex] = late ? '遲交' : '已繳交';
+          newBg[rowIndex][colIndex]     = late ? '#fff2cc' : '#d9ead3';
         } else {
-          submissionData[rowIndex][colIndex] = { background: '#f4cccc', value: '未繳交' };
+          // Only reset to '未繳交' if not previously marked as submitted or late.
+          // Once a file is moved to FEEDBACK / RETURNED the pending folder is
+          // empty, but the submission already happened — preserve that status.
+          const ev = existingValues[rowIndex][colIndex];
+          if (ev !== '已繳交' && ev !== '遲交') {
+            newValues[rowIndex][colIndex] = '未繳交';
+            newBg[rowIndex][colIndex]     = '#f4cccc';
+          }
         }
       });
     } catch(e) {}
   });
   
-  const range = sheet.getRange(4, 2, studentNames.length, homeworkNames.length);
-  range.setValues(submissionData.map(r => r.map(c => c.value)));
-  range.setBackgrounds(submissionData.map(r => r.map(c => c.background)));
+  existingRange.setValues(newValues);
+  existingRange.setBackgrounds(newBg);
 }
 
 // ================== 4. 逾期名單 ==================
@@ -702,6 +715,7 @@ function getSpreadsheetData() {
 
 function updateSpreadsheet(className, homeworkName, deadline) {
   const sheet = SpreadsheetApp.openById(props.getProperty('RECORD_SHEET_ID')).getSheets().find(s => s.getRange('A1').getValue().toString().trim() === className);
+  if (!sheet) return;
   const row1 = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
   const nextCol = row1.findIndex((v, i) => i > 0 && !v) + 1 || row1.length + 1;
   sheet.getRange(1, nextCol).setValue(homeworkName);
