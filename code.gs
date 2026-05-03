@@ -22,6 +22,12 @@ function doGet(e) {
   } else if (page === 'homework') {
     const template = HtmlService.createTemplateFromFile('homework');
     return template.evaluate().setTitle('布置課業');
+  } else if (page === 'config') {
+    const template = HtmlService.createTemplateFromFile('config');
+    return template.evaluate().setTitle('科目與類別設定');
+  } else if (page === 'autoshare') {
+    const template = HtmlService.createTemplateFromFile('autoshare');
+    return template.evaluate().setTitle('自動共用管理');
   } else {
     const template = HtmlService.createTemplateFromFile('Index');
     
@@ -37,6 +43,108 @@ function doGet(e) {
     };
     
     return template.evaluate().setTitle('帙雲 - 控制面板');
+  }
+}
+
+// ================== 科目與類別設定 ==================
+function getSubjectConfig() {
+  const stored = PropertiesService.getUserProperties().getProperty('SUBJECT_CONFIG');
+  if (stored) {
+    try { return JSON.parse(stored); } catch(e) {}
+  }
+  // Default config
+  return {
+    subjects: ['中文'],
+    categories: {
+      '中文': ['閱讀', '寫作（長文）', '寫作（實用文）']
+    }
+  };
+}
+
+function saveSubjectConfig(config) {
+  try {
+    PropertiesService.getUserProperties().setProperty('SUBJECT_CONFIG', JSON.stringify(config));
+    return { success: true, message: '✅ 設定已儲存！' };
+  } catch(e) {
+    return { success: false, message: '❌ 儲存失敗：' + e.message };
+  }
+}
+
+// ================== 截止日期格式化 ==================
+function formatDeadline(date) {
+  if (!date) return '';
+  const d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+// ================== 自動共用管理 (Web App CRUD) ==================
+function getAutoShareData() {
+  const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+  if (!autoShareId) return [];
+  const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, 3).getValues().map(row => ({
+    studentId: String(row[0]).trim(),
+    name: String(row[1]).trim(),
+    folderUrl: String(row[2]).trim()
+  })).filter(r => r.studentId || r.name);
+}
+
+function saveAutoShareRow(studentId, name) {
+  try {
+    const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+    if (!autoShareId) return { success: false, message: '系統尚未初始化' };
+    const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]).trim() === String(studentId).trim()) {
+          sheet.getRange(i + 2, 1, 1, 2).setValues([[studentId, name]]);
+          return { success: true, message: '✅ 已更新學生資料' };
+        }
+      }
+    }
+    sheet.appendRow([studentId, name, '']);
+    return { success: true, message: '✅ 已新增學生' };
+  } catch(e) {
+    return { success: false, message: '❌ 錯誤：' + e.message };
+  }
+}
+
+function deleteAutoShareRow(studentId) {
+  try {
+    const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+    if (!autoShareId) return { success: false, message: '系統尚未初始化' };
+    const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { success: false, message: '找不到學生' };
+    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = ids.length - 1; i >= 0; i--) {
+      if (String(ids[i][0]).trim() === String(studentId).trim()) {
+        sheet.deleteRow(i + 2);
+        return { success: true, message: '✅ 已刪除' };
+      }
+    }
+    return { success: false, message: '找不到該學號的學生' };
+  } catch(e) {
+    return { success: false, message: '❌ 錯誤：' + e.message };
+  }
+}
+
+function triggerAutoShare() {
+  try {
+    autoShareStudentFolders();
+    return { success: true, message: '✅ 自動共用已執行完畢！請查看表格中的 C 欄。' };
+  } catch(e) {
+    return { success: false, message: '❌ 發生錯誤：' + e.message };
   }
 }
 
@@ -359,6 +467,21 @@ function distributeHomework() {
 }
 
 // ================== 3. 繳交紀錄更新與創建資料夾 ==================
+// Parses a homework name and returns { category, title } supporting both:
+//   Old format: 「category」title【keyword】
+//   New format: 「subject」「category」title【keyword】
+function parseHomeworkName(name) {
+  if (!name) return null;
+  const nameStr = name.toString();
+  const matches = [...nameStr.matchAll(/「(.*?)」/g)];
+  if (matches.length >= 2) {
+    return { category: matches[1][1], title: nameStr.replace(/「.*?」「.*?」/, '').trim() };
+  } else if (matches.length === 1) {
+    return { category: matches[0][1], title: nameStr.replace(/「.*?」/, '').trim() };
+  }
+  return null;
+}
+
 function createFoldersAndUpdateSheet() {
   const spreadsheetId = props.getProperty('RECORD_SHEET_ID');
   const pendingFolderId = props.getProperty('PENDING_FOLDER_ID');
@@ -376,17 +499,11 @@ function createFoldersAndUpdateSheet() {
       studentNames = sheet.getRange('A4:A' + lastRow).getValues().flat().filter(String);
     }
 
-    const categories = ['閱讀', '寫作（長文）', '寫作（實用文）'];
-
     const classReturnFolder = getOrCreateFolder(returnedFolderId, `【${className}】`);
     if (classReturnFolder && studentNames.length > 0) {
       studentNames.forEach(student => {
         if (className === "1A" && student === "陳大文") return;
-
-        const sFolder = getOrCreateFolder(classReturnFolder.getId(), `【${student}】`);
-        categories.forEach(cat => {
-          getOrCreateFolder(sFolder.getId(), cat);
-        });
+        getOrCreateFolder(classReturnFolder.getId(), `【${student}】`);
       });
     }
 
@@ -397,16 +514,16 @@ function createFoldersAndUpdateSheet() {
     const homeworkNames = homeworkValues[0];
     const deadlines = homeworkValues[1];
     
-    const homeworkByCategory = { '閱讀': [], '寫作（長文）': [], '寫作（實用文）': [] };
+    const homeworkByCategory = {};
     const homeworkFolderIds = new Array(homeworkNames.length).fill('');
     const homeworkInfos = [];
     
-    homeworkNames.forEach((name, index) => {
-      const match = name ? name.toString().match(/「(.*?)」/) : null;
-      if (match && categories.includes(match[1])) {
-        const title = name.replace(/「.*?」/, '').trim();
-        homeworkByCategory[match[1]].push(title);
-        homeworkInfos.push({ category: match[1], title: title });
+    homeworkNames.forEach(name => {
+      const info = parseHomeworkName(name);
+      if (info) {
+        if (!homeworkByCategory[info.category]) homeworkByCategory[info.category] = [];
+        homeworkByCategory[info.category].push(info.title);
+        homeworkInfos.push(info);
       } else {
         homeworkInfos.push(null);
       }
@@ -415,9 +532,12 @@ function createFoldersAndUpdateSheet() {
     const classPendingFolder = getOrCreateFolder(pendingFolderId, className);
     if (classPendingFolder) {
       const catFolders = {};
-      categories.forEach(c => catFolders[c] = getOrCreateFolder(classPendingFolder.getId(), c));
       homeworkInfos.forEach((info, index) => {
-        if (info && catFolders[info.category]) {
+        if (!info) return;
+        if (!catFolders[info.category]) {
+          catFolders[info.category] = getOrCreateFolder(classPendingFolder.getId(), info.category);
+        }
+        if (catFolders[info.category]) {
           const hwFolder = getOrCreateFolder(catFolders[info.category].getId(), info.title);
           if (hwFolder) homeworkFolderIds[index] = hwFolder.getId();
         }
@@ -431,11 +551,9 @@ function createFoldersAndUpdateSheet() {
         if (className === "1A" && student === "陳大文") return;
 
         const sFolder = getOrCreateFolder(classReturnFolder.getId(), `【${student}】`);
-        categories.forEach(cat => {
+        Object.keys(homeworkByCategory).forEach(cat => {
           const catFolder = getOrCreateFolder(sFolder.getId(), cat);
-          if(homeworkByCategory[cat]) {
-            homeworkByCategory[cat].forEach(hw => getOrCreateFolder(catFolder.getId(), hw));
-          }
+          if (catFolder) homeworkByCategory[cat].forEach(hw => getOrCreateFolder(catFolder.getId(), hw));
         });
       });
     }
@@ -534,7 +652,7 @@ function getClassData() {
     const lastCol = sheet.getLastColumn();
     const hws = lastCol >= 2 ? sheet.getRange(1, 2, 2, lastCol - 1).getValues() : [[],[]];
     const students = sheet.getRange('A4:A' + sheet.getLastRow()).getValues().flat().filter(String);
-    const hwData = hws[0].map((name, i) => ({ name: name, deadline: hws[1][i].toString(), folderId: sheet.getRange(3, 2 + i).getValue() }));
+    const hwData = hws[0].map((name, i) => ({ name: name, deadline: formatDeadline(hws[1][i]), folderId: sheet.getRange(3, 2 + i).getValue() }));
     
     classData.push({
       className: className,
@@ -549,7 +667,7 @@ function getClassData() {
 }
 
 function getSpreadsheetData() {
-  const data = { classes: [], homeworks: {} };
+  const data = { classes: [], homeworks: {}, subjectConfig: getSubjectConfig() };
   SpreadsheetApp.openById(props.getProperty('RECORD_SHEET_ID')).getSheets().forEach(sheet => {
     const className = sheet.getRange('A1').getValue().toString().trim();
     if (!className) return;

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自動共用管理</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Noto Serif TC', serif;
+      background: #1a1a2e;
+      color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .header {
+      text-align: center;
+      padding: 20px;
+      background: rgba(30, 30, 60, 0.98);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 36px; color: #5dade2; margin: 0; }
+    .header p  { margin: 6px 0 0; color: #aaa; font-size: 14px; }
+
+    .main-content {
+      max-width: 960px;
+      margin: 30px auto;
+      padding: 0 20px 60px;
+    }
+
+    .notice {
+      background: rgba(46,134,193,0.15);
+      border-left: 4px solid #2e86c1;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #aed6f1;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .toolbar input {
+      padding: 9px 12px;
+      background: #2a2a2a;
+      border: 1px solid #555;
+      border-radius: 7px;
+      color: #f0f0f0;
+      font-size: 15px;
+      width: 160px;
+    }
+    .toolbar label { font-size: 13px; color: #aaa; display: block; margin-bottom: 4px; }
+
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 15px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:hover { opacity: 0.85; transform: scale(1.02); }
+    .btn-blue   { background: #2e86c1; color: #fff; }
+    .btn-red    { background: #c0392b; color: #fff; font-size: 13px; padding: 6px 12px; }
+    .btn-teal   { background: #1abc9c; color: #fff; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    thead th {
+      background: #2e86c1;
+      color: #fff;
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 15px;
+    }
+    tbody tr { border-bottom: 1px solid #333; }
+    tbody tr:hover { background: rgba(255,255,255,0.04); }
+    tbody td { padding: 10px 14px; font-size: 14px; vertical-align: middle; }
+    .url-cell { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .url-cell a { color: #5dade2; text-decoration: none; }
+    .url-cell a:hover { text-decoration: underline; }
+
+    .share-btn-row { text-align: right; margin-bottom: 18px; }
+    #run-status { font-size: 15px; margin-top: 10px; min-height: 22px; }
+    .success { color: #2ecc71; }
+    .error   { color: #e74c3c; }
+
+    .loading { color: #f0a500; font-style: italic; }
+    .empty-row td { text-align: center; color: #777; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔗 自動共用管理</h1>
+    <p>管理學生帳號與資料夾共用。亦可直接在「帙雲 - 自動共用、收集位址」試算表中編輯。</p>
+  </div>
+
+  <div class="main-content">
+    <div class="notice">
+      ℹ️ 在此新增或刪除學生後，點擊「立即執行自動共用」，系統將把學生的「已發還課業」資料夾共用給對應 Google 帳號，並填寫資料夾網址。
+    </div>
+
+    <!-- 新增學生 -->
+    <div class="toolbar">
+      <div>
+        <label for="new-id">學號</label>
+        <input type="text" id="new-id" placeholder="例如：21001">
+      </div>
+      <div>
+        <label for="new-name">姓名</label>
+        <input type="text" id="new-name" placeholder="例如：陳大文">
+      </div>
+      <button class="btn btn-blue" onclick="addStudent()" style="margin-bottom:0;">➕ 新增學生</button>
+    </div>
+
+    <!-- 執行共用 -->
+    <div class="share-btn-row">
+      <button class="btn btn-teal" id="run-btn" onclick="runAutoShare()">▶ 立即執行自動共用</button>
+      <div id="run-status"></div>
+    </div>
+
+    <!-- 學生列表 -->
+    <table>
+      <thead>
+        <tr>
+          <th>學號</th>
+          <th>姓名</th>
+          <th>已發還課業資料夾</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="student-table-body">
+        <tr class="empty-row"><td colspan="4">載入中…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    // ── Load students from backend ────────────────────────────────────────
+    function loadStudents() {
+      google.script.run
+        .withSuccessHandler(function(rows) {
+          renderTable(rows);
+        })
+        .withFailureHandler(function(err) {
+          setTableMessage('載入失敗：' + err.message, true);
+        })
+        .getAutoShareData();
+    }
+
+    // ── Render student table ─────────────────────────────────────────────
+    function renderTable(rows) {
+      const tbody = document.getElementById('student-table-body');
+      if (!rows || rows.length === 0) {
+        setTableMessage('尚未新增任何學生。');
+        return;
+      }
+      tbody.innerHTML = rows.map(function(r) {
+        const urlCell = r.folderUrl
+          ? `<a href="${escHtml(r.folderUrl)}" target="_blank" title="${escHtml(r.folderUrl)}">🔗 開啟資料夾</a>`
+          : '<span style="color:#777;">（尚未共用）</span>';
+        return `<tr>
+          <td>${escHtml(r.studentId)}</td>
+          <td>${escHtml(r.name)}</td>
+          <td class="url-cell">${urlCell}</td>
+          <td><button class="btn btn-red" onclick="deleteStudent('${escJs(r.studentId)}')">🗑️ 刪除</button></td>
+        </tr>`;
+      }).join('');
+    }
+
+    function setTableMessage(msg, isError) {
+      const tbody = document.getElementById('student-table-body');
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="4" style="${isError ? 'color:#e74c3c;' : ''}">${escHtml(msg)}</td></tr>`;
+    }
+
+    // ── Add student ───────────────────────────────────────────────────────
+    function addStudent() {
+      const studentId = document.getElementById('new-id').value.trim();
+      const name      = document.getElementById('new-name').value.trim();
+      if (!studentId || !name) { alert('請填寫學號和姓名'); return; }
+
+      setTableMessage('處理中…', false);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            document.getElementById('new-id').value   = '';
+            document.getElementById('new-name').value = '';
+            loadStudents();
+          } else {
+            alert(result.message);
+            loadStudents();
+          }
+        })
+        .withFailureHandler(function(err) {
+          alert('❌ 錯誤：' + err.message);
+          loadStudents();
+        })
+        .saveAutoShareRow(studentId, name);
+    }
+
+    // ── Delete student ────────────────────────────────────────────────────
+    function deleteStudent(studentId) {
+      if (!confirm('確定刪除學號「' + studentId + '」的學生？\n（此操作不會撤銷已共用的資料夾權限）')) return;
+      setTableMessage('處理中…', false);
+      google.script.run
+        .withSuccessHandler(function(result) {
+          alert(result.message);
+          loadStudents();
+        })
+        .withFailureHandler(function(err) {
+          alert('❌ 錯誤：' + err.message);
+          loadStudents();
+        })
+        .deleteAutoShareRow(studentId);
+    }
+
+    // ── Run auto-share ────────────────────────────────────────────────────
+    function runAutoShare() {
+      const btn      = document.getElementById('run-btn');
+      const statusEl = document.getElementById('run-status');
+      btn.disabled   = true;
+      btn.textContent = '⏳ 執行中…';
+      statusEl.className   = 'loading';
+      statusEl.textContent = '正在共用資料夾，請稍候…';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          statusEl.className   = result.success ? 'success' : 'error';
+          statusEl.textContent = result.message;
+          btn.disabled   = false;
+          btn.textContent = '▶ 立即執行自動共用';
+          loadStudents(); // Refresh URLs
+        })
+        .withFailureHandler(function(err) {
+          statusEl.className   = 'error';
+          statusEl.textContent = '❌ 錯誤：' + err.message;
+          btn.disabled   = false;
+          btn.textContent = '▶ 立即執行自動共用';
+        })
+        .triggerAutoShare();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escJs(s) {
+      return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    }
+
+    window.onload = loadStudents;
+  </script>
+</body>
+</html>
