@@ -90,14 +90,15 @@ function getAutoShareData() {
   const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return [];
-  return sheet.getRange(2, 1, lastRow - 1, 3).getValues().map(row => ({
+  return sheet.getRange(2, 1, lastRow - 1, 4).getValues().map(row => ({
     studentId: String(row[0]).trim(),
-    name: String(row[1]).trim(),
-    folderUrl: String(row[2]).trim()
-  })).filter(r => r.studentId || r.name);
+    className: String(row[1]).trim(),
+    name: String(row[2]).trim(),
+    folderUrl: String(row[3]).trim()
+  })).filter(r => r.studentId && r.className && r.name);
 }
 
-function saveAutoShareRow(studentId, name) {
+function saveAutoShareRow(studentId, className, name) {
   try {
     const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
     if (!autoShareId) return { success: false, message: '系統尚未初始化' };
@@ -107,12 +108,12 @@ function saveAutoShareRow(studentId, name) {
       const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
       for (let i = 0; i < ids.length; i++) {
         if (String(ids[i][0]).trim() === String(studentId).trim()) {
-          sheet.getRange(i + 2, 1, 1, 2).setValues([[studentId, name]]);
+          sheet.getRange(i + 2, 1, 1, 3).setValues([[studentId, className, name]]);
           return { success: true, message: '✅ 已更新學生資料' };
         }
       }
     }
-    sheet.appendRow([studentId, name, '']);
+    sheet.appendRow([studentId, className, name, '']);
     return { success: true, message: '✅ 已新增學生' };
   } catch(e) {
     return { success: false, message: '❌ 錯誤：' + e.message };
@@ -142,7 +143,7 @@ function deleteAutoShareRow(studentId) {
 function triggerAutoShare() {
   try {
     autoShareStudentFolders();
-    return { success: true, message: '✅ 自動共用已執行完畢！請查看表格中的 C 欄。' };
+    return { success: true, message: '✅ 自動共用已執行完畢！請查看表格中的 D 欄。' };
   } catch(e) {
     return { success: false, message: '❌ 發生錯誤：' + e.message };
   }
@@ -227,7 +228,7 @@ function installZhiyun() {
 
     recordSheet.getSheets()[0].setName("1A").getRange("A1").setValue("1A");
     recordSheet.getSheets()[0].getRange("A4").setValue("陳大文"); 
-    autoShareSheet.getSheets()[0].getRange("A1:C1").setValues([["學號", "姓名", "專屬文件夾位址"]]);
+    autoShareSheet.getSheets()[0].getRange("A1:D1").setValues([["學號", "班別", "姓名", "專屬文件夾位址"]]);
 
     props.setProperties({
       'IS_INSTALLED': 'true',
@@ -298,28 +299,30 @@ function autoShareStudentFolders() {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return; 
   
-  const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  const data = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
   const returnedFolder = DriveApp.getFolderById(returnedFolderId);
 
   const classFolders = returnedFolder.getFolders();
   const studentFoldersMap = {};
   while (classFolders.hasNext()) {
     const cFolder = classFolders.next();
+    const classNameKey = cFolder.getName().replace(/【|】/g, '').trim();
     const sFolders = cFolder.getFolders();
     while (sFolders.hasNext()) {
       const sFolder = sFolders.next();
-      const cleanName = sFolder.getName().replace(/【|】/g, '').trim(); 
-      studentFoldersMap[cleanName] = sFolder;
+      const studentNameKey = sFolder.getName().replace(/【|】/g, '').trim();
+      studentFoldersMap[classNameKey + '_' + studentNameKey] = sFolder;
     }
   }
 
   data.forEach((row, index) => {
-    const studentId = String(row[0]).trim();
-    const studentName = String(row[1]).trim();
-    let folderUrl = row[2];
+    const studentId   = String(row[0]).trim();
+    const className   = String(row[1]).trim();
+    const studentName = String(row[2]).trim();
+    let folderUrl = row[3];
 
-    if (studentId && studentName && (!folderUrl || String(folderUrl).includes("共用失敗"))) {
-      const sFolder = studentFoldersMap[studentName];
+    if (studentId && className && studentName && (!folderUrl || String(folderUrl).includes("共用失敗"))) {
+      const sFolder = studentFoldersMap[className + '_' + studentName];
       if (sFolder) {
         // ✨ 已依據參考代碼修正：移除 ms. ，改為正確的學校 Google 網域 ccckyc.edu.hk
         const email = `${studentId}@ccckyc.edu.hk`;
@@ -339,9 +342,9 @@ function autoShareStudentFolders() {
           );
           
           folderUrl = sFolder.getUrl();
-          sheet.getRange(index + 2, 3).setValue(folderUrl); 
+          sheet.getRange(index + 2, 4).setValue(folderUrl); 
         } catch(e) {
-          sheet.getRange(index + 2, 3).setValue("共用失敗: " + e.message);
+          sheet.getRange(index + 2, 4).setValue("共用失敗: " + e.message);
         }
       }
     }
@@ -428,13 +431,14 @@ function distributeHomework() {
     var studentFolders = classMap[classKey].getFolders();
     while (studentFolders.hasNext()) {
       var studentFolder = studentFolders.next();
-      var studentKey = studentFolder.getName().replace(/【|】/g, '');
+      var studentKey = studentFolder.getName().replace(/【|】/g, '').trim();
       if (!studentMap[classKey]) studentMap[classKey] = {};
       studentMap[classKey][studentKey] = studentFolder;
       
-      var writingFolders = studentFolder.getFoldersByName('寫作（長文）');
-      if (writingFolders.hasNext()) {
-        var assignmentFolders = writingFolders.next().getFolders();
+      var catFolders = studentFolder.getFolders();
+      while (catFolders.hasNext()) {
+        var catFolder = catFolders.next();
+        var assignmentFolders = catFolder.getFolders();
         while (assignmentFolders.hasNext()) {
           var assignmentFolder = assignmentFolders.next();
           var match = assignmentFolder.getName().match(/【(.*?)】/);
@@ -453,9 +457,13 @@ function distributeHomework() {
     
     var assignmentKeyword = null;
     if (classKey && studentKey) {
+      const keyPrefix = `${classKey}_${studentKey}_`;
       for (var key in assignmentMap) {
-        if (key.startsWith(`${classKey}_${studentKey}_`) && fileName.includes(key.split('_')[2])) {
-          assignmentKeyword = key.split('_')[2]; break;
+        if (key.startsWith(keyPrefix)) {
+          const keyword = key.slice(keyPrefix.length);
+          if (fileName.includes(keyword)) {
+            assignmentKeyword = keyword; break;
+          }
         }
       }
     }
@@ -619,9 +627,12 @@ function generateOverdueAssignments() {
 
   const studentSheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
   const studentMap = {};
-  studentSheet.getRange('A2:B' + studentSheet.getLastRow()).getValues().forEach(row => {
-    if(row[0] && row[1]) studentMap[row[1]] = `${row[0]}@ccckyc.edu.hk`; // 這裡順便幫您把逾期名單搜集的電郵也改正過來了
-  });
+  const lastStudentRow = studentSheet.getLastRow();
+  if (lastStudentRow >= 2) {
+    studentSheet.getRange('A2:C' + lastStudentRow).getValues().forEach(row => {
+      if(row[0] && row[1] && row[2]) studentMap[row[1] + '_' + row[2]] = `${row[0]}@ccckyc.edu.hk`; // 學號、班別、姓名
+    });
+  }
 
   const overdueSpreadsheet = SpreadsheetApp.openById(overdueId);
   let overdueSheet = overdueSpreadsheet.getSheetByName('Overdue Assignments') || overdueSpreadsheet.insertSheet('Overdue Assignments');
@@ -643,7 +654,7 @@ function generateOverdueAssignments() {
 
       assignments[0].forEach((assignment, cIdx) => {
         if (statuses[rIdx][cIdx] === '未繳交' && currentDate > new Date(assignments[1][cIdx])) {
-          if (studentMap[student]) overdueSheet.appendRow([className, student, studentMap[student], assignment, assignments[1][cIdx]]);
+          if (studentMap[className + '_' + student]) overdueSheet.appendRow([className, student, studentMap[className + '_' + student], assignment, assignments[1][cIdx]]);
         }
       });
     });

@@ -122,6 +122,10 @@
         <input type="text" id="new-id" placeholder="例如：21001">
       </div>
       <div>
+        <label for="new-class">班別</label>
+        <input type="text" id="new-class" placeholder="例如：1A">
+      </div>
+      <div>
         <label for="new-name">姓名</label>
         <input type="text" id="new-name" placeholder="例如：陳大文">
       </div>
@@ -139,13 +143,14 @@
       <thead>
         <tr>
           <th>學號</th>
+          <th>班別</th>
           <th>姓名</th>
           <th>已發還課業資料夾</th>
           <th>操作</th>
         </tr>
       </thead>
       <tbody id="student-table-body">
-        <tr class="empty-row"><td colspan="4">載入中…</td></tr>
+        <tr class="empty-row"><td colspan="5">載入中…</td></tr>
       </tbody>
     </table>
   </div>
@@ -176,6 +181,7 @@
           : '<span style="color:#777;">（尚未共用）</span>';
         return `<tr>
           <td>${escHtml(r.studentId)}</td>
+          <td>${escHtml(r.className)}</td>
           <td>${escHtml(r.name)}</td>
           <td class="url-cell">${urlCell}</td>
           <td><button class="btn btn-red" onclick="deleteStudent('${escJs(r.studentId)}')">🗑️ 刪除</button></td>
@@ -185,21 +191,23 @@
 
     function setTableMessage(msg, isError) {
       const tbody = document.getElementById('student-table-body');
-      tbody.innerHTML = `<tr class="empty-row"><td colspan="4" style="${isError ? 'color:#e74c3c;' : ''}">${escHtml(msg)}</td></tr>`;
+      tbody.innerHTML = `<tr class="empty-row"><td colspan="5" style="${isError ? 'color:#e74c3c;' : ''}">${escHtml(msg)}</td></tr>`;
     }
 
     // ── Add student ───────────────────────────────────────────────────────
     function addStudent() {
       const studentId = document.getElementById('new-id').value.trim();
+      const className = document.getElementById('new-class').value.trim();
       const name      = document.getElementById('new-name').value.trim();
-      if (!studentId || !name) { alert('請填寫學號和姓名'); return; }
+      if (!studentId || !className || !name) { alert('請填寫學號、班別和姓名'); return; }
 
       setTableMessage('處理中…', false);
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            document.getElementById('new-id').value   = '';
-            document.getElementById('new-name').value = '';
+            document.getElementById('new-id').value    = '';
+            document.getElementById('new-class').value = '';
+            document.getElementById('new-name').value  = '';
             loadStudents();
           } else {
             alert(result.message);
@@ -210,7 +218,7 @@
           alert('❌ 錯誤：' + err.message);
           loadStudents();
         })
-        .saveAutoShareRow(studentId, name);
+        .saveAutoShareRow(studentId, className, name);
     }
 
     // ── Delete student ────────────────────────────────────────────────────
