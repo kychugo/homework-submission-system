@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>帙雲 - 學生交作業</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Noto Serif TC', serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 24px 16px 16px;
+      background: rgba(15,30,60,0.95);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .header h1 { font-size: clamp(24px, 5vw, 42px); color: #5dade2; margin: 0 0 6px; }
+    .header p  { margin: 0; color: #aaa; font-size: 14px; }
+
+    /* ── Main ── */
+    .main-content {
+      flex: 1;
+      max-width: 640px;
+      width: 100%;
+      margin: 30px auto;
+      padding: 0 16px 60px;
+    }
+
+    /* ── Step indicator ── */
+    .steps {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      margin-bottom: 28px;
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: #666;
+    }
+    .step .dot {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #333;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-size: 13px;
+      flex-shrink: 0;
+    }
+    .step.active .dot  { background: #2e86c1; color: #fff; }
+    .step.done .dot    { background: #27ae60; color: #fff; }
+    .step.active       { color: #5dade2; }
+    .step.done         { color: #2ecc71; }
+    .step-line { width: 30px; height: 2px; background: #333; flex-shrink: 0; }
+    .step-line.done    { background: #27ae60; }
+
+    /* ── Card ── */
+    .card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .card h2 { font-size: 20px; color: #5dade2; margin: 0 0 20px; }
+
+    label   { display: block; font-size: 15px; color: #ccc; margin-bottom: 6px; }
+    select, .file-info {
+      width: 100%;
+      padding: 10px 12px;
+      background: #1e2a3a;
+      border: 1px solid #445;
+      border-radius: 8px;
+      color: #f0f0f0;
+      font-size: 15px;
+      margin-bottom: 18px;
+      appearance: none;
+    }
+    select:focus { outline: none; border-color: #2e86c1; }
+
+    /* ── File upload zone ── */
+    .upload-zone {
+      border: 2px dashed #445;
+      border-radius: 12px;
+      padding: 30px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 18px;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #2e86c1;
+      background: rgba(46,134,193,0.08);
+    }
+    .upload-zone .icon  { font-size: 40px; }
+    .upload-zone p      { margin: 8px 0 0; color: #aaa; font-size: 14px; }
+    .upload-zone strong { color: #5dade2; }
+    #file-input { display: none; }
+
+    .file-list { list-style: none; padding: 0; margin: 0 0 18px; }
+    .file-list li {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; background: rgba(255,255,255,0.06);
+      border-radius: 8px; margin-bottom: 6px; font-size: 14px;
+    }
+    .file-list li .fname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-list li .fsize { color: #888; white-space: nowrap; }
+    .file-list li button {
+      background: none; border: none; color: #e74c3c;
+      cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 4px;
+    }
+
+    /* ── Buttons ── */
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      font-family: inherit;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.88; transform: scale(1.02); }
+    .btn:disabled  { opacity: 0.5; cursor: not-allowed; }
+    .btn-next      { background: #2e86c1; color: #fff; flex: 1; }
+    .btn-back      { background: #444; color: #ddd; }
+    .btn-submit    { background: #27ae60; color: #fff; flex: 1; }
+
+    /* ── Summary ── */
+    .summary p { margin: 6px 0; font-size: 15px; }
+    .summary .label { color: #aaa; font-size: 13px; }
+
+    /* ── Result ── */
+    .result { text-align: center; padding: 20px 0; }
+    .result .icon { font-size: 60px; }
+    .result h2 { font-size: 22px; margin: 12px 0 8px; }
+    .result p  { color: #aaa; font-size: 14px; }
+    .result .file-names { margin: 12px 0; font-size: 13px; color: #88d; }
+
+    .err-msg { color: #e74c3c; font-size: 14px; margin-top: -12px; margin-bottom: 10px; }
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* Language toggle */
+    .lang-btn {
+      position: fixed; top: 12px; right: 16px;
+      background: #2e86c1; color: #fff;
+      border: none; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px;
+      cursor: pointer; z-index: 999;
+      transition: background 0.2s;
+    }
+    .lang-btn:hover { background: #1a6fa5; }
+  </style>
+</head>
+<body>
+  <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
+  <div class="header">
+    <h1 id="page-title">📚 帙雲交作業</h1>
+    <p id="page-desc">選擇班別、你的名字和作業，然後上傳檔案</p>
+  </div>
+
+  <div class="main-content">
+    <!-- Step indicator -->
+    <div class="steps" id="step-indicator">
+      <div class="step active" id="step-dot-1"><div class="dot">1</div><span id="step-lbl-1">班別</span></div>
+      <div class="step-line" id="line-1"></div>
+      <div class="step" id="step-dot-2"><div class="dot">2</div><span id="step-lbl-2">姓名</span></div>
+      <div class="step-line" id="line-2"></div>
+      <div class="step" id="step-dot-3"><div class="dot">3</div><span id="step-lbl-3">作業</span></div>
+      <div class="step-line" id="line-3"></div>
+      <div class="step" id="step-dot-4"><div class="dot">4</div><span id="step-lbl-4">上傳</span></div>
+    </div>
+
+    <!-- Step 1: Class -->
+    <div class="card" id="step-1">
+      <h2 id="s1-title">第一步：選擇班別</h2>
+      <label for="class-select" id="lbl-class">班別</label>
+      <select id="class-select"><option value="" id="class-loading">載入中…</option></select>
+      <div id="class-error" class="err-msg"></div>
+      <div class="btn-row">
+        <button class="btn btn-next" id="btn-next-1" onclick="goStep2()">下一步 ➜</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Student -->
+    <div class="card" id="step-2" style="display:none;">
+      <h2 id="s2-title">第二步：選擇你的名字</h2>
+      <label for="student-select" id="lbl-student">學生姓名</label>
+      <select id="student-select"><option value="">請先選擇班別</option></select>
+      <div id="student-error" class="err-msg"></div>
+      <div class="btn-row">
+        <button class="btn btn-back" id="btn-back-2" onclick="goStep(1)">◀ 返回</button>
+        <button class="btn btn-next" id="btn-next-2" onclick="goStep3()">下一步 ➜</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Homework -->
+    <div class="card" id="step-3" style="display:none;">
+      <h2 id="s3-title">第三步：選擇作業</h2>
+      <label for="homework-select" id="lbl-hw">作業</label>
+      <select id="homework-select"><option value="">請先選擇班別</option></select>
+      <div id="hw-error" class="err-msg"></div>
+      <div class="btn-row">
+        <button class="btn btn-back" id="btn-back-3" onclick="goStep(2)">◀ 返回</button>
+        <button class="btn btn-next" id="btn-next-3" onclick="goStep4()">下一步 ➜</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Upload -->
+    <div class="card" id="step-4" style="display:none;">
+      <h2 id="s4-title">第四步：上傳檔案</h2>
+      <div class="summary">
+        <p><span class="label" id="lbl-sum-class">班別：</span><span id="sum-class"></span></p>
+        <p><span class="label" id="lbl-sum-name">姓名：</span><span id="sum-name"></span></p>
+        <p><span class="label" id="lbl-sum-hw">作業：</span><span id="sum-hw"></span></p>
+      </div>
+
+      <label id="lbl-upload">上傳檔案（支援任何格式，可多選）</label>
+      <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+        <div class="icon">📁</div>
+        <p id="zone-text">點擊或<strong>拖放</strong>檔案到此處</p>
+        <p id="zone-hint" style="margin-top:4px; font-size:12px;">支援任何格式 · 可同時選多個檔案</p>
+      </div>
+      <input type="file" id="file-input" multiple>
+
+      <ul class="file-list" id="file-list"></ul>
+      <div id="upload-error" class="err-msg"></div>
+
+      <div class="btn-row">
+        <button class="btn btn-back" id="btn-back-4" onclick="goStep(3)">◀ 返回</button>
+        <button class="btn btn-submit" id="submit-btn" onclick="submitHomework()">📤 提交作業</button>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="card result" id="step-result" style="display:none;">
+      <div class="icon" id="result-icon">✅</div>
+      <h2 id="result-title"></h2>
+      <p id="result-msg"></p>
+      <div class="file-names" id="result-files"></div>
+      <div class="btn-row" style="justify-content:center; margin-top:20px;">
+        <button class="btn btn-next" id="btn-reset" onclick="resetForm()">再交一份作業</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Language switcher ─────────────────────────────────────────────────
+    const I18N = {
+      zh: {
+        pageTitle: '📚 帙雲交作業', pageDesc: '選擇班別、你的名字和作業，然後上傳檔案',
+        stepLbl: ['班別', '姓名', '作業', '上傳'],
+        s1Title: '第一步：選擇班別', lblClass: '班別',
+        s2Title: '第二步：選擇你的名字', lblStudent: '學生姓名',
+        s3Title: '第三步：選擇作業', lblHw: '作業',
+        s4Title: '第四步：上傳檔案',
+        lblSumClass: '班別：', lblSumName: '姓名：', lblSumHw: '作業：',
+        lblUpload: '上傳檔案（支援任何格式，可多選）',
+        zoneText: '點擊或<strong>拖放</strong>檔案到此處',
+        zoneHint: '支援任何格式 · 可同時選多個檔案',
+        btnNext: '下一步 ➜', btnBack: '◀ 返回', btnSubmit: '📤 提交作業',
+        btnReset: '再交一份作業',
+        loading: '載入中…', selectClass: '— 請選擇班別 —',
+        selectName: '— 請選擇姓名 —', selectHw: '— 請選擇作業 —',
+        errClass: '請選擇班別', errStudent: '請選擇姓名', errHw: '請選擇作業',
+        errNoFile: '請選擇至少一個檔案',
+        uploading: '上傳中，請稍候…',
+        resultSuccess: '提交成功！', resultFail: '提交失敗',
+        uploadedLabel: '已上傳：',
+        fileTooLarge: '超過 48 MB 限制，已略過。',
+        removeTitle: '移除'
+      },
+      en: {
+        pageTitle: '📚 Zhiyun Submit Homework', pageDesc: 'Select your class, name and assignment, then upload',
+        stepLbl: ['Class', 'Name', 'Task', 'Upload'],
+        s1Title: 'Step 1: Select Class', lblClass: 'Class',
+        s2Title: 'Step 2: Select Your Name', lblStudent: 'Student Name',
+        s3Title: 'Step 3: Select Homework', lblHw: 'Homework',
+        s4Title: 'Step 4: Upload File(s)',
+        lblSumClass: 'Class: ', lblSumName: 'Name: ', lblSumHw: 'Homework: ',
+        lblUpload: 'Upload files (any format, multiple allowed)',
+        zoneText: 'Click or <strong>drag & drop</strong> files here',
+        zoneHint: 'Any format · Multiple files allowed',
+        btnNext: 'Next ➜', btnBack: '◀ Back', btnSubmit: '📤 Submit',
+        btnReset: 'Submit Another',
+        loading: 'Loading…', selectClass: '— Select Class —',
+        selectName: '— Select Name —', selectHw: '— Select Homework —',
+        errClass: 'Please select a class', errStudent: 'Please select your name', errHw: 'Please select a homework',
+        errNoFile: 'Please select at least one file',
+        uploading: 'Uploading, please wait…',
+        resultSuccess: 'Submitted!', resultFail: 'Submission Failed',
+        uploadedLabel: 'Uploaded: ',
+        fileTooLarge: 'exceeds 48 MB limit and was skipped.',
+        removeTitle: 'Remove'
+      }
+    };
+    let currentLang = localStorage.getItem('zhiyun_lang') || 'zh';
+
+    function applyLang() {
+      const t = I18N[currentLang];
+      document.getElementById('page-title').textContent = t.pageTitle;
+      document.getElementById('page-desc').textContent  = t.pageDesc;
+      for (let i = 1; i <= 4; i++) document.getElementById('step-lbl-' + i).textContent = t.stepLbl[i - 1];
+      document.getElementById('s1-title').textContent   = t.s1Title;
+      document.getElementById('lbl-class').textContent  = t.lblClass;
+      document.getElementById('s2-title').textContent   = t.s2Title;
+      document.getElementById('lbl-student').textContent = t.lblStudent;
+      document.getElementById('s3-title').textContent   = t.s3Title;
+      document.getElementById('lbl-hw').textContent     = t.lblHw;
+      document.getElementById('s4-title').textContent   = t.s4Title;
+      document.getElementById('lbl-sum-class').textContent = t.lblSumClass;
+      document.getElementById('lbl-sum-name').textContent  = t.lblSumName;
+      document.getElementById('lbl-sum-hw').textContent    = t.lblSumHw;
+      document.getElementById('lbl-upload').textContent    = t.lblUpload;
+      document.getElementById('zone-text').innerHTML    = t.zoneText;
+      document.getElementById('zone-hint').textContent  = t.zoneHint;
+      document.getElementById('btn-next-1').textContent = t.btnNext;
+      document.getElementById('btn-back-2').textContent = t.btnBack;
+      document.getElementById('btn-next-2').textContent = t.btnNext;
+      document.getElementById('btn-back-3').textContent = t.btnBack;
+      document.getElementById('btn-next-3').textContent = t.btnNext;
+      document.getElementById('btn-back-4').textContent = t.btnBack;
+      document.getElementById('submit-btn').textContent = t.btnSubmit;
+      document.getElementById('btn-reset').textContent  = t.btnReset;
+      document.getElementById('lang-btn').textContent   = currentLang === 'zh' ? 'EN' : '中文';
+      renderFileList(); // Refresh remove button titles
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      localStorage.setItem('zhiyun_lang', currentLang);
+      applyLang();
+    }
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let formData = { classes: [], students: {}, homeworks: {} };
+    let selectedFiles = [];
+    const MAX_FILE_SIZE = 48 * 1024 * 1024; // 48 MB — safety buffer below the 50 MB Apps Script blob limit
+
+    // ── Init ─────────────────────────────────────────────────────────────────
+    window.onload = function() {
+      applyLang();
+      const t = I18N[currentLang];
+      google.script.run
+        .withSuccessHandler(function(data) {
+          if (data.error) {
+            document.getElementById('class-select').innerHTML = '<option value="">❌ ' + data.error + '</option>';
+            return;
+          }
+          formData = data;
+          const sel = document.getElementById('class-select');
+          sel.innerHTML = '<option value="">' + I18N[currentLang].selectClass + '</option>';
+          data.classes.forEach(function(cls) {
+            const opt = document.createElement('option');
+            opt.value = cls; opt.textContent = cls;
+            sel.appendChild(opt);
+          });
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('class-select').innerHTML = '<option value="">❌ ' + err.message + '</option>';
+        })
+        .getStudentFormData();
+
+      // Drag-and-drop
+      const zone = document.getElementById('upload-zone');
+      zone.addEventListener('dragover',  function(e) { e.preventDefault(); zone.classList.add('drag-over'); });
+      zone.addEventListener('dragleave', function()  { zone.classList.remove('drag-over'); });
+      zone.addEventListener('drop',      function(e) {
+        e.preventDefault(); zone.classList.remove('drag-over');
+        handleFiles(e.dataTransfer.files);
+      });
+      document.getElementById('file-input').addEventListener('change', function() {
+        handleFiles(this.files);
+      });
+    };
+
+    // ── Step navigation ───────────────────────────────────────────────────────
+    function showStep(n) {
+      [1,2,3,4,'result'].forEach(function(s) {
+        document.getElementById('step-' + s).style.display = 'none';
+      });
+      document.getElementById('step-' + n).style.display = 'block';
+      // Update dots (only 1-4)
+      if (typeof n === 'number') {
+        for (let i = 1; i <= 4; i++) {
+          const dot = document.getElementById('step-dot-' + i);
+          dot.className = 'step ' + (i < n ? 'done' : i === n ? 'active' : '');
+          if (i < 4) {
+            document.getElementById('line-' + i).className = 'step-line ' + (i < n ? 'done' : '');
+          }
+        }
+      }
+    }
+
+    function goStep(n) { showStep(n); }
+
+    function goStep2() {
+      const t = I18N[currentLang];
+      const cls = document.getElementById('class-select').value;
+      document.getElementById('class-error').textContent = '';
+      if (!cls) { document.getElementById('class-error').textContent = t.errClass; return; }
+
+      // Populate students
+      const sel = document.getElementById('student-select');
+      sel.innerHTML = '<option value="">' + t.selectName + '</option>';
+      (formData.students[cls] || []).forEach(function(s) {
+        const opt = document.createElement('option');
+        opt.value = s; opt.textContent = s; sel.appendChild(opt);
+      });
+      showStep(2);
+    }
+
+    function goStep3() {
+      const t = I18N[currentLang];
+      const student = document.getElementById('student-select').value;
+      document.getElementById('student-error').textContent = '';
+      if (!student) { document.getElementById('student-error').textContent = t.errStudent; return; }
+
+      // Populate homeworks
+      const cls = document.getElementById('class-select').value;
+      const sel = document.getElementById('homework-select');
+      sel.innerHTML = '<option value="">' + t.selectHw + '</option>';
+      (formData.homeworks[cls] || []).forEach(function(hw) {
+        const opt = document.createElement('option');
+        opt.value = hw; opt.textContent = hw; sel.appendChild(opt);
+      });
+      showStep(3);
+    }
+
+    function goStep4() {
+      const t = I18N[currentLang];
+      const hw = document.getElementById('homework-select').value;
+      document.getElementById('hw-error').textContent = '';
+      if (!hw) { document.getElementById('hw-error').textContent = t.errHw; return; }
+
+      document.getElementById('sum-class').textContent = document.getElementById('class-select').value;
+      document.getElementById('sum-name').textContent  = document.getElementById('student-select').value;
+      document.getElementById('sum-hw').textContent    = hw;
+      showStep(4);
+    }
+
+    // ── File handling ─────────────────────────────────────────────────────────
+    function handleFiles(fileList) {
+      const t = I18N[currentLang];
+      Array.from(fileList).forEach(function(f) {
+        if (f.size > MAX_FILE_SIZE) {
+          alert(`「${f.name}」${t.fileTooLarge}`);
+          return;
+        }
+        selectedFiles.push(f);
+      });
+      renderFileList();
+    }
+
+    function renderFileList() {
+      const t = I18N[currentLang];
+      const ul = document.getElementById('file-list');
+      ul.innerHTML = selectedFiles.map(function(f, i) {
+        return `<li>
+          <span>📄</span>
+          <span class="fname">${escHtml(f.name)}</span>
+          <span class="fsize">${formatSize(f.size)}</span>
+          <button onclick="removeFile(${i})" title="${t.removeTitle}">✕</button>
+        </li>`;
+      }).join('');
+    }
+
+    function removeFile(idx) {
+      selectedFiles.splice(idx, 1);
+      renderFileList();
+    }
+
+    // ── Submit ────────────────────────────────────────────────────────────────
+    function submitHomework() {
+      const t = I18N[currentLang];
+      document.getElementById('upload-error').textContent = '';
+      if (selectedFiles.length === 0) {
+        document.getElementById('upload-error').textContent = t.errNoFile;
+        return;
+      }
+
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="spin">⏳</span> ' + t.uploading;
+
+      const className    = document.getElementById('class-select').value;
+      const studentName  = document.getElementById('student-select').value;
+      const homeworkName = document.getElementById('homework-select').value;
+
+      // Read all files as base64, then submit
+      readFilesAsBase64(selectedFiles, function(encodedFiles) {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = I18N[currentLang].btnSubmit;
+            showResult(result);
+          })
+          .withFailureHandler(function(err) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = I18N[currentLang].btnSubmit;
+            document.getElementById('upload-error').textContent = '❌ ' + err.message;
+          })
+          .submitHomework({ className: className, studentName: studentName, homeworkName: homeworkName, files: encodedFiles });
+      });
+    }
+
+    function readFilesAsBase64(files, callback) {
+      const results = [];
+      let done = 0;
+      files.forEach(function(file, idx) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const b64 = e.target.result.split(',')[1]; // strip data:...;base64,
+          results[idx] = { name: file.name, base64: b64, mimeType: file.type || 'application/octet-stream' };
+          done++;
+          if (done === files.length) callback(results);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ── Result display ────────────────────────────────────────────────────────
+    function showResult(result) {
+      const t = I18N[currentLang];
+      showStep('result');
+      document.getElementById('result-icon').textContent  = result.success ? '✅' : '❌';
+      document.getElementById('result-title').textContent = result.success ? t.resultSuccess : t.resultFail;
+      document.getElementById('result-msg').textContent   = result.message;
+      if (result.success && result.files) {
+        document.getElementById('result-files').innerHTML =
+          t.uploadedLabel + '<br>' + result.files.map(function(f) { return escHtml(f); }).join('<br>');
+      } else {
+        document.getElementById('result-files').textContent = '';
+      }
+    }
+
+    function resetForm() {
+      selectedFiles = [];
+      document.getElementById('file-list').innerHTML = '';
+      document.getElementById('file-input').value = '';
+      document.getElementById('class-select').value = '';
+      showStep(1);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+    }
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>

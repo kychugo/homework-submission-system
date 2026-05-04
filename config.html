@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>科目與類別設定</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Noto Serif TC', serif;
+      background: #1a1a2e;
+      color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    .header {
+      text-align: center;
+      padding: 20px;
+      background: rgba(30, 30, 60, 0.98);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 36px; color: #5dade2; margin: 0; }
+    .header p  { margin: 6px 0 0; color: #aaa; font-size: 14px; }
+
+    .main-content {
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 0 20px 60px;
+    }
+
+    .notice {
+      background: rgba(46,134,193,0.15);
+      border-left: 4px solid #2e86c1;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: #aed6f1;
+    }
+
+    .subject-card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid #444;
+      border-radius: 14px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .subject-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.08);
+      border-bottom: 1px solid #444;
+    }
+    .subject-name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #5dade2;
+      flex: 1;
+    }
+    .subject-name-input {
+      flex: 1;
+      padding: 6px 10px;
+      background: #333;
+      border: 1px solid #666;
+      border-radius: 6px;
+      color: #f0f0f0;
+      font-size: 16px;
+    }
+    .subject-body { padding: 16px 18px; }
+
+    .cat-list { list-style: none; margin: 0 0 12px; padding: 0; }
+    .cat-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid #333;
+    }
+    .cat-list li:last-child { border-bottom: none; }
+    .cat-name { flex: 1; font-size: 16px; }
+    .cat-name-input {
+      flex: 1;
+      padding: 4px 8px;
+      background: #333;
+      border: 1px solid #666;
+      border-radius: 5px;
+      color: #f0f0f0;
+      font-size: 15px;
+    }
+
+    .add-cat-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .add-cat-row input {
+      flex: 1;
+      padding: 7px 10px;
+      background: #2a2a2a;
+      border: 1px solid #555;
+      border-radius: 6px;
+      color: #f0f0f0;
+      font-size: 15px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:hover { opacity: 0.85; transform: scale(1.03); }
+    .btn-blue   { background: #2e86c1; color: #fff; }
+    .btn-red    { background: #c0392b; color: #fff; }
+    .btn-green  { background: #27ae60; color: #fff; }
+    .btn-orange { background: #d35400; color: #fff; }
+    .btn-save   { background: #1abc9c; color: #fff; font-size: 18px; padding: 14px 40px; border-radius: 10px; margin-top: 30px; }
+
+    .add-subject-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .add-subject-bar input {
+      flex: 1;
+      padding: 10px 14px;
+      background: #2a2a2a;
+      border: 1px solid #555;
+      border-radius: 8px;
+      color: #f0f0f0;
+      font-size: 16px;
+    }
+
+    #save-status {
+      font-size: 16px;
+      margin-top: 16px;
+      min-height: 24px;
+    }
+    .success { color: #2ecc71; }
+    .error   { color: #e74c3c; }
+
+    /* Language toggle */
+    .lang-btn {
+      position: fixed; top: 12px; right: 16px;
+      background: #2e86c1; color: #fff;
+      border: none; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px;
+      cursor: pointer; z-index: 999;
+      transition: background 0.2s;
+    }
+    .lang-btn:hover { background: #1a6fa5; }
+  </style>
+</head>
+<body>
+  <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
+  <div class="header">
+    <h1 id="page-title">⚙️ 科目與類別設定</h1>
+    <p id="page-desc">每個科目可獨立設定課業類別。設定完成後請按「儲存設定」。</p>
+  </div>
+
+  <div class="main-content">
+    <div class="notice" id="notice-text">
+      ℹ️ 此設定僅影響「布置課業」面板的下拉選單。已佈置的舊課業不受影響。
+    </div>
+
+    <!-- 新增科目 -->
+    <div class="add-subject-bar">
+      <input type="text" id="new-subject-input" data-i18n-ph="phSubject" placeholder="輸入新科目名稱，例如：英文">
+      <button class="btn btn-blue" onclick="addSubject()" id="btn-add-subject">➕ 新增科目</button>
+    </div>
+
+    <!-- 科目卡片列表 -->
+    <div id="subjects-container"></div>
+
+    <!-- 儲存按鈕 -->
+    <div style="text-align:center;">
+      <button class="btn btn-save" onclick="saveConfig()" id="btn-save">💾 儲存設定</button>
+      <div id="save-status"></div>
+    </div>
+  </div>
+
+  <script>
+    // ── Language switcher ─────────────────────────────────────────────────
+    const I18N = {
+      zh: {
+        pageTitle: '⚙️ 科目與類別設定',
+        pageDesc: '每個科目可獨立設定課業類別。設定完成後請按「儲存設定」。',
+        noticeText: 'ℹ️ 此設定僅影響「布置課業」面板的下拉選單。已佈置的舊課業不受影響。',
+        phSubject: '輸入新科目名稱，例如：英文',
+        btnAddSubject: '➕ 新增科目', btnSave: '💾 儲存設定',
+        btnDelSubject: '🗑️ 刪除科目', btnAddCat: '➕ 新增類別', btnDelCat: '🗑️ 刪除',
+        phCat: '輸入新類別名稱', noCats: '（尚未新增類別）',
+        saving: '儲存中…',
+        errSubjectEmpty: '請輸入科目名稱', errSubjectDup: '此科目已存在',
+        errCatEmpty: '請輸入類別名稱', errCatDup: '此類別已存在',
+        confirmDelSubject: '確定刪除科目「{s}」及其所有類別？'
+      },
+      en: {
+        pageTitle: '⚙️ Subject & Category Settings',
+        pageDesc: 'Configure categories for each subject. Click "Save" when done.',
+        noticeText: 'ℹ️ This only affects the dropdowns in "Assign Homework". Existing assignments are not affected.',
+        phSubject: 'New subject name, e.g. English',
+        btnAddSubject: '➕ Add Subject', btnSave: '💾 Save Settings',
+        btnDelSubject: '🗑️ Delete Subject', btnAddCat: '➕ Add Category', btnDelCat: '🗑️ Delete',
+        phCat: 'New category name', noCats: '(No categories yet)',
+        saving: 'Saving…',
+        errSubjectEmpty: 'Please enter a subject name', errSubjectDup: 'Subject already exists',
+        errCatEmpty: 'Please enter a category name', errCatDup: 'Category already exists',
+        confirmDelSubject: 'Delete subject "{s}" and all its categories?'
+      }
+    };
+    let currentLang = localStorage.getItem('zhiyun_lang') || 'zh';
+
+    function applyLang() {
+      const t = I18N[currentLang];
+      document.getElementById('page-title').textContent  = t.pageTitle;
+      document.getElementById('page-desc').textContent   = t.pageDesc;
+      document.getElementById('notice-text').textContent = t.noticeText;
+      document.getElementById('new-subject-input').placeholder = t.phSubject;
+      document.getElementById('btn-add-subject').textContent   = t.btnAddSubject;
+      document.getElementById('btn-save').textContent          = t.btnSave;
+      document.getElementById('lang-btn').textContent = currentLang === 'zh' ? 'EN' : '中文';
+      renderSubjects();
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      localStorage.setItem('zhiyun_lang', currentLang);
+      applyLang();
+    }
+
+    // In-memory config object
+    let config = { subjects: [], categories: {} };
+
+    // ── Load config from backend ─────────────────────────────────────────
+    function loadConfig() {
+      google.script.run
+        .withSuccessHandler(function(c) {
+          config = c;
+          applyLang();
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('subjects-container').innerHTML =
+            '<p style="color:#e74c3c;">Load failed: ' + err.message + '</p>';
+        })
+        .getSubjectConfig();
+    }
+
+    // ── Render all subject cards ─────────────────────────────────────────
+    function renderSubjects() {
+      const t = I18N[currentLang];
+      const container = document.getElementById('subjects-container');
+      container.innerHTML = '';
+      config.subjects.forEach(function(subject, sIdx) {
+        const cats = config.categories[subject] || [];
+        const card = document.createElement('div');
+        card.className = 'subject-card';
+        card.dataset.subject = subject;
+
+        let catItems = cats.map(function(cat, cIdx) {
+          return `<li>
+            <span class="cat-name">${escHtml(cat)}</span>
+            <button class="btn btn-red" onclick="deleteCategory('${escJs(subject)}', ${cIdx})">${t.btnDelCat}</button>
+          </li>`;
+        }).join('');
+
+        card.innerHTML = `
+          <div class="subject-header">
+            <span class="subject-name">${escHtml(subject)}</span>
+            <button class="btn btn-red" onclick="deleteSubject(${sIdx})">${t.btnDelSubject}</button>
+          </div>
+          <div class="subject-body">
+            <ul class="cat-list">${catItems || `<li style="color:#888; font-size:14px;">${t.noCats}</li>`}</ul>
+            <div class="add-cat-row">
+              <input type="text" id="new-cat-${sIdx}" placeholder="${escHtml(t.phCat)}">
+              <button class="btn btn-green" onclick="addCategory('${escJs(subject)}', ${sIdx})">${t.btnAddCat}</button>
+            </div>
+          </div>`;
+        container.appendChild(card);
+      });
+    }
+
+    // ── Add a new subject ────────────────────────────────────────────────
+    function addSubject() {
+      const t = I18N[currentLang];
+      const input = document.getElementById('new-subject-input');
+      const name = input.value.trim();
+      if (!name) { alert(t.errSubjectEmpty); return; }
+      if (config.subjects.includes(name)) { alert(t.errSubjectDup); return; }
+      config.subjects.push(name);
+      if (!config.categories[name]) config.categories[name] = [];
+      input.value = '';
+      renderSubjects();
+    }
+
+    // ── Delete a subject ─────────────────────────────────────────────────
+    function deleteSubject(sIdx) {
+      const t = I18N[currentLang];
+      const subj = config.subjects[sIdx];
+      if (!confirm(t.confirmDelSubject.replace('{s}', subj))) return;
+      delete config.categories[subj];
+      config.subjects.splice(sIdx, 1);
+      renderSubjects();
+    }
+
+    // ── Add a category to a subject ──────────────────────────────────────
+    function addCategory(subject, sIdx) {
+      const t = I18N[currentLang];
+      const input = document.getElementById('new-cat-' + sIdx);
+      const name = input.value.trim();
+      if (!name) { alert(t.errCatEmpty); return; }
+      if (!config.categories[subject]) config.categories[subject] = [];
+      if (config.categories[subject].includes(name)) { alert(t.errCatDup); return; }
+      config.categories[subject].push(name);
+      input.value = '';
+      renderSubjects();
+    }
+
+    // ── Delete a category from a subject ─────────────────────────────────
+    function deleteCategory(subject, cIdx) {
+      config.categories[subject].splice(cIdx, 1);
+      renderSubjects();
+    }
+
+    // ── Save config to backend ───────────────────────────────────────────
+    function saveConfig() {
+      const t = I18N[currentLang];
+      const statusEl = document.getElementById('save-status');
+      statusEl.className = '';
+      statusEl.textContent = t.saving;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          statusEl.className = result.success ? 'success' : 'error';
+          statusEl.textContent = result.message;
+        })
+        .withFailureHandler(function(err) {
+          statusEl.className = 'error';
+          statusEl.textContent = '❌ ' + err.message;
+        })
+        .saveSubjectConfig(config);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escJs(s) {
+      return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    }
+
+    window.onload = loadConfig;
+  </script>
+</body>
+</html>

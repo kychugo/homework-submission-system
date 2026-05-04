@@ -5,7 +5,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>yd 課業繳交紀錄查閱</title>
+  <title>帙雲 課業繳交紀錄查閱</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&family=cwTeXHei&display=swap" rel="stylesheet">
   <style>
     body {
@@ -194,14 +194,42 @@
         font-size: 15px;
       }
     }
+
+    /* Language toggle */
+    .lang-btn {
+      position: fixed; top: 12px; right: 16px;
+      background: #4682B4; color: #fff;
+      border: none; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px;
+      cursor: pointer; z-index: 1001;
+      transition: background 0.2s;
+    }
+    .lang-btn:hover { background: #3670a1; }
+
+    /* colour legend */
+    .legend {
+      display: flex; gap: 14px; flex-wrap: wrap;
+      justify-content: center; margin-bottom: 18px;
+      font-size: 13px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot  { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
   </style>
 </head>
 <body>
+  <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
   <div class="header">
-    <h1>作業繳交紀錄</h1>
+    <h1 id="page-title">作業繳交紀錄</h1>
   </div>
 
   <div class="main-content">
+    <!-- Colour legend -->
+    <div class="legend" id="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#d9ead3;"></div><span id="leg-submitted">已繳交</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff2cc;"></div><span id="leg-late">遲交</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f4cccc;"></div><span id="leg-missing">未繳交</span></div>
+    </div>
+
     <div class="class-buttons" id="class-buttons">
       <? for (const classInfo of classData) { ?>
       <button class="class-button" data-class="<?= classInfo.className ?>"><?= classInfo.className ?></button>
@@ -215,7 +243,7 @@
           <table class="status-table">
             <thead>
               <tr>
-                <th>學生姓名</th>
+                <th class="th-student">學生姓名</th>
                 <? for (const hw of classInfo.homework) { ?>
                 <th>
                   <div class="hw-info">
@@ -231,7 +259,7 @@
               <tr>
                 <td><?= student.name ?></td>
                 <? for (const submission of student.submissions) { ?>
-                <td style="background-color: <?= submission.color ?>;"></td>
+                <td style="background-color: <?= submission.color ?>;" title="<?= submission.color === '#d9ead3' ? '已繳交' : submission.color === '#fff2cc' ? '遲交' : submission.color === '#f4cccc' ? '未繳交' : '' ?>"></td>
                 <? } ?>
               </tr>
               <? } ?>
@@ -244,18 +272,55 @@
   </div>
 
   <script>
+    // ── Language switcher ─────────────────────────────────────────────────
+    const I18N = {
+      zh: {
+        pageTitle: '作業繳交紀錄',
+        studentName: '學生姓名',
+        submitted: '已繳交', late: '遲交', missing: '未繳交'
+      },
+      en: {
+        pageTitle: 'Homework Submission Records',
+        studentName: 'Student Name',
+        submitted: 'Submitted', late: 'Late', missing: 'Not Submitted'
+      }
+    };
+    let currentLang = localStorage.getItem('zhiyun_lang') || 'zh';
+
+    function applyLang() {
+      const t = I18N[currentLang];
+      document.getElementById('page-title').textContent = t.pageTitle;
+      document.querySelectorAll('.th-student').forEach(function(el) { el.textContent = t.studentName; });
+      document.getElementById('leg-submitted').textContent = t.submitted;
+      document.getElementById('leg-late').textContent      = t.late;
+      document.getElementById('leg-missing').textContent   = t.missing;
+      // Update cell tooltips
+      document.querySelectorAll('.status-table td[title]').forEach(function(td) {
+        const title = td.getAttribute('title');
+        if (title === '已繳交' || title === 'Submitted') td.setAttribute('title', t.submitted);
+        else if (title === '遲交' || title === 'Late')    td.setAttribute('title', t.late);
+        else if (title === '未繳交' || title === 'Not Submitted') td.setAttribute('title', t.missing);
+      });
+      document.getElementById('lang-btn').textContent = currentLang === 'zh' ? 'EN' : '中文';
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      localStorage.setItem('zhiyun_lang', currentLang);
+      applyLang();
+    }
+
+    // ── Class table toggle ────────────────────────────────────────────────
     document.querySelectorAll('.class-button').forEach(button => {
       button.addEventListener('click', function() {
         const className = this.dataset.class;
         document.querySelectorAll('.class-table').forEach(table => {
-          if (table.dataset.class === className) {
-            table.style.display = 'block';
-          } else {
-            table.style.display = 'none';
-          }
+          table.style.display = table.dataset.class === className ? 'block' : 'none';
         });
       });
     });
+
+    window.addEventListener('load', applyLang);
   </script>
 </body>
 </html>

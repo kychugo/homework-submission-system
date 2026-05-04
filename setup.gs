@@ -44,7 +44,7 @@ function installZhiyun() {
     // 5. 初始化試算表內容
     recordSheet.getSheets()[0].setName("1A").getRange("A1").setValue("1A");
     recordSheet.getSheets()[0].getRange("A4").setValue("陳大文"); // 測試用學生
-    autoShareSheet.getSheets()[0].getRange("A1:C1").setValues([["學號", "姓名", "專屬文件夾位址"]]);
+    autoShareSheet.getSheets()[0].getRange("A1:D1").setValues([["學號", "班別", "姓名", "專屬文件夾位址"]]);
 
     // 6. 將所有 ID 存入系統紀錄中
     props.setProperties({

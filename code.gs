@@ -22,6 +22,12 @@ function doGet(e) {
   } else if (page === 'homework') {
     const template = HtmlService.createTemplateFromFile('homework');
     return template.evaluate().setTitle('布置課業');
+  } else if (page === 'config') {
+    const template = HtmlService.createTemplateFromFile('config');
+    return template.evaluate().setTitle('科目與類別設定');
+  } else if (page === 'autoshare') {
+    const template = HtmlService.createTemplateFromFile('autoshare');
+    return template.evaluate().setTitle('自動共用管理');
   } else {
     const template = HtmlService.createTemplateFromFile('Index');
     
@@ -37,6 +43,109 @@ function doGet(e) {
     };
     
     return template.evaluate().setTitle('帙雲 - 控制面板');
+  }
+}
+
+// ================== 科目與類別設定 ==================
+function getSubjectConfig() {
+  const stored = PropertiesService.getUserProperties().getProperty('SUBJECT_CONFIG');
+  if (stored) {
+    try { return JSON.parse(stored); } catch(e) {}
+  }
+  // Default config
+  return {
+    subjects: ['中文'],
+    categories: {
+      '中文': ['閱讀', '寫作（長文）', '寫作（實用文）']
+    }
+  };
+}
+
+function saveSubjectConfig(config) {
+  try {
+    PropertiesService.getUserProperties().setProperty('SUBJECT_CONFIG', JSON.stringify(config));
+    return { success: true, message: '✅ 設定已儲存！' };
+  } catch(e) {
+    return { success: false, message: '❌ 儲存失敗：' + e.message };
+  }
+}
+
+// ================== 截止日期格式化 ==================
+function formatDeadline(date) {
+  if (!date) return '';
+  const d = (date instanceof Date) ? date : new Date(date);
+  if (isNaN(d.getTime())) return String(date);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+}
+
+// ================== 自動共用管理 (Web App CRUD) ==================
+function getAutoShareData() {
+  const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+  if (!autoShareId) return [];
+  const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return [];
+  return sheet.getRange(2, 1, lastRow - 1, 4).getValues().map(row => ({
+    studentId: String(row[0]).trim(),
+    className: String(row[1]).trim(),
+    name: String(row[2]).trim(),
+    folderUrl: String(row[3]).trim()
+  })).filter(r => r.studentId && r.className && r.name);
+}
+
+function saveAutoShareRow(studentId, className, name) {
+  try {
+    const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+    if (!autoShareId) return { success: false, message: '系統尚未初始化' };
+    const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+    const lastRow = sheet.getLastRow();
+    if (lastRow >= 2) {
+      const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (let i = 0; i < ids.length; i++) {
+        if (String(ids[i][0]).trim() === String(studentId).trim()) {
+          sheet.getRange(i + 2, 1, 1, 3).setValues([[studentId, className, name]]);
+          return { success: true, message: '✅ 已更新學生資料' };
+        }
+      }
+    }
+    sheet.appendRow([studentId, className, name, '']);
+    return { success: true, message: '✅ 已新增學生' };
+  } catch(e) {
+    return { success: false, message: '❌ 錯誤：' + e.message };
+  }
+}
+
+function deleteAutoShareRow(studentId) {
+  try {
+    const autoShareId = PropertiesService.getUserProperties().getProperty('AUTO_SHARE_SHEET_ID');
+    if (!autoShareId) return { success: false, message: '系統尚未初始化' };
+    const sheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return { success: false, message: '找不到學生' };
+    const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (let i = ids.length - 1; i >= 0; i--) {
+      if (String(ids[i][0]).trim() === String(studentId).trim()) {
+        sheet.deleteRow(i + 2);
+        return { success: true, message: '✅ 已刪除' };
+      }
+    }
+    return { success: false, message: '找不到該學號的學生' };
+  } catch(e) {
+    return { success: false, message: '❌ 錯誤：' + e.message };
+  }
+}
+
+function triggerAutoShare() {
+  try {
+    autoShareStudentFolders();
+    return { success: true, message: '✅ 自動共用已執行完畢！請查看表格中的 D 欄。' };
+  } catch(e) {
+    return { success: false, message: '❌ 發生錯誤：' + e.message };
   }
 }
 
@@ -72,7 +181,7 @@ function manualShare() {
   ui.alert("⏳ 系統正在為尚未設定的學生共用資料夾，並填寫位址，請按「確定」並稍候...");
   try {
     autoShareStudentFolders(); 
-    ui.alert("✅ 共用權限已更新完畢！\n請查看「自動共用、收集位址」表中的C欄。");
+    ui.alert("✅ 共用權限已更新完畢！\n請查看「自動共用、收集位址」表中的D欄。");
   } catch (e) {
     ui.alert("❌ 發生錯誤：" + e.message);
   }
@@ -119,7 +228,7 @@ function installZhiyun() {
 
     recordSheet.getSheets()[0].setName("1A").getRange("A1").setValue("1A");
     recordSheet.getSheets()[0].getRange("A4").setValue("陳大文"); 
-    autoShareSheet.getSheets()[0].getRange("A1:C1").setValues([["學號", "姓名", "專屬文件夾位址"]]);
+    autoShareSheet.getSheets()[0].getRange("A1:D1").setValues([["學號", "班別", "姓名", "專屬文件夾位址"]]);
 
     props.setProperties({
       'IS_INSTALLED': 'true',
@@ -190,28 +299,30 @@ function autoShareStudentFolders() {
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) return; 
   
-  const data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  const data = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
   const returnedFolder = DriveApp.getFolderById(returnedFolderId);
 
   const classFolders = returnedFolder.getFolders();
   const studentFoldersMap = {};
   while (classFolders.hasNext()) {
     const cFolder = classFolders.next();
+    const classNameKey = cFolder.getName().replace(/【|】/g, '').trim();
     const sFolders = cFolder.getFolders();
     while (sFolders.hasNext()) {
       const sFolder = sFolders.next();
-      const cleanName = sFolder.getName().replace(/【|】/g, '').trim(); 
-      studentFoldersMap[cleanName] = sFolder;
+      const studentNameKey = sFolder.getName().replace(/【|】/g, '').trim();
+      studentFoldersMap[classNameKey + '_' + studentNameKey] = sFolder;
     }
   }
 
   data.forEach((row, index) => {
-    const studentId = String(row[0]).trim();
-    const studentName = String(row[1]).trim();
-    let folderUrl = row[2];
+    const studentId   = String(row[0]).trim();
+    const className   = String(row[1]).trim();
+    const studentName = String(row[2]).trim();
+    let folderUrl = row[3];
 
-    if (studentId && studentName && (!folderUrl || String(folderUrl).includes("共用失敗"))) {
-      const sFolder = studentFoldersMap[studentName];
+    if (studentId && className && studentName && (!folderUrl || String(folderUrl).includes("共用失敗"))) {
+      const sFolder = studentFoldersMap[className + '_' + studentName];
       if (sFolder) {
         // ✨ 已依據參考代碼修正：移除 ms. ，改為正確的學校 Google 網域 ccckyc.edu.hk
         const email = `${studentId}@ccckyc.edu.hk`;
@@ -231,9 +342,9 @@ function autoShareStudentFolders() {
           );
           
           folderUrl = sFolder.getUrl();
-          sheet.getRange(index + 2, 3).setValue(folderUrl); 
+          sheet.getRange(index + 2, 4).setValue(folderUrl); 
         } catch(e) {
-          sheet.getRange(index + 2, 3).setValue("共用失敗: " + e.message);
+          sheet.getRange(index + 2, 4).setValue("共用失敗: " + e.message);
         }
       }
     }
@@ -246,7 +357,6 @@ function sortStudentAssignments() {
   const targetFolderId = props.getProperty('PENDING_FOLDER_ID');
   if(!sourceFolderId || !targetFolderId) return;
 
-  const supportedMimeTypes = [MimeType.PDF, MimeType.JPEG, MimeType.PNG, MimeType.GIF, MimeType.BMP, MimeType.WEBP];
   const classFolders = getClassFoldersRecursive(targetFolderId);
   const sourceFolder = DriveApp.getFolderById(sourceFolderId);
   const allFiles = sourceFolder.getFiles();
@@ -254,7 +364,6 @@ function sortStudentAssignments() {
   while (allFiles.hasNext()) {
     const file = allFiles.next();
     const fileName = file.getName();
-    if (!supportedMimeTypes.includes(file.getMimeType())) continue;
     
     const classMatch = fileName.match(/(\d+[A-Z])/);
     if (!classMatch) continue;
@@ -272,7 +381,9 @@ function sortStudentAssignments() {
     }
     if (!targetSubfolderId) targetSubfolderId = classInfo.rootFolderId;
     
-    try { file.moveTo(DriveApp.getFolderById(targetSubfolderId)); } catch (e) {}
+    try { file.moveTo(DriveApp.getFolderById(targetSubfolderId)); } catch (e) {
+      Logger.log('sortStudentAssignments: failed to move "%s" to folder %s — %s', fileName, targetSubfolderId, e.message);
+    }
   }
 }
 
@@ -320,13 +431,14 @@ function distributeHomework() {
     var studentFolders = classMap[classKey].getFolders();
     while (studentFolders.hasNext()) {
       var studentFolder = studentFolders.next();
-      var studentKey = studentFolder.getName().replace(/【|】/g, '');
+      var studentKey = studentFolder.getName().replace(/【|】/g, '').trim();
       if (!studentMap[classKey]) studentMap[classKey] = {};
       studentMap[classKey][studentKey] = studentFolder;
       
-      var writingFolders = studentFolder.getFoldersByName('寫作（長文）');
-      if (writingFolders.hasNext()) {
-        var assignmentFolders = writingFolders.next().getFolders();
+      var catFolders = studentFolder.getFolders();
+      while (catFolders.hasNext()) {
+        var catFolder = catFolders.next();
+        var assignmentFolders = catFolder.getFolders();
         while (assignmentFolders.hasNext()) {
           var assignmentFolder = assignmentFolders.next();
           var match = assignmentFolder.getName().match(/【(.*?)】/);
@@ -336,29 +448,70 @@ function distributeHomework() {
     }
   }
 
+  // Sort keys longest-first so that e.g. "11A" is matched before "1A",
+  // and "陳大文" is matched before "陳大", preventing partial-name collisions.
+  function byLengthDesc(a, b) { return b.length - a.length; }
+  var classKeys = Object.keys(classMap).sort(byLengthDesc);
+
   var files = uploadFolder.getFiles();
   while (files.hasNext()) {
     var file = files.next();
     var fileName = file.getName();
-    var classKey = Object.keys(classMap).find(ck => fileName.includes(ck));
-    var studentKey = classKey && studentMap[classKey] ? Object.keys(studentMap[classKey]).find(sk => fileName.includes(sk)) : null;
+    var classKey = classKeys.find(ck => fileName.includes(ck)) || null;
+    var studentKeys = classKey && studentMap[classKey] ? Object.keys(studentMap[classKey]).sort(byLengthDesc) : [];
+    var studentKey = studentKeys.find(sk => fileName.includes(sk)) || null;
     
     var assignmentKeyword = null;
     if (classKey && studentKey) {
-      for (var key in assignmentMap) {
-        if (key.startsWith(`${classKey}_${studentKey}_`) && fileName.includes(key.split('_')[2])) {
-          assignmentKeyword = key.split('_')[2]; break;
-        }
+      const keyPrefix = `${classKey}_${studentKey}_`;
+      // Check longer keywords first to avoid a short keyword shadowing a longer one
+      var kwCandidates = Object.keys(assignmentMap)
+        .filter(k => k.startsWith(keyPrefix))
+        .map(k => k.slice(keyPrefix.length))
+        .sort(byLengthDesc);
+      for (var i = 0; i < kwCandidates.length; i++) {
+        if (fileName.includes(kwCandidates[i])) { assignmentKeyword = kwCandidates[i]; break; }
       }
     }
 
-    if (classKey && studentKey && assignmentKeyword) file.moveTo(assignmentMap[`${classKey}_${studentKey}_${assignmentKeyword}`]);
-    else if (classKey && studentKey) file.moveTo(studentMap[classKey][studentKey]);
-    else if (classKey) file.moveTo(classMap[classKey]);
+    try {
+      if (classKey && studentKey && assignmentKeyword) {
+        file.moveTo(assignmentMap[`${classKey}_${studentKey}_${assignmentKeyword}`]);
+      } else if (classKey && studentKey) {
+        file.moveTo(studentMap[classKey][studentKey]);
+      } else if (classKey) {
+        file.moveTo(classMap[classKey]);
+      } else {
+        Logger.log('distributeHomework: no matching folder found for "%s" — file left in Feedback folder', fileName);
+      }
+    } catch (e) {
+      Logger.log('distributeHomework: failed to move "%s" — %s', fileName, e.message);
+    }
   }
 }
 
 // ================== 3. 繳交紀錄更新與創建資料夾 ==================
+// Parses a homework name and returns { category, title } supporting both:
+//   Old format: 「category」title【keyword】
+//   New format: 「subject」「category」title【keyword】
+function parseHomeworkName(name) {
+  if (!name) return null;
+  const nameStr = name.toString();
+  const matches = [...nameStr.matchAll(/「(.*?)」/g)];
+  if (matches.length >= 2) {
+    // New format: 「subject」「category」title【keyword】
+    // Extract title as everything after the second 「...」 token
+    const afterSecond = matches[1].index + matches[1][0].length;
+    return { category: matches[1][1], title: nameStr.slice(afterSecond).trim() };
+  } else if (matches.length === 1) {
+    // Old format: 「category」title【keyword】
+    // Extract title as everything after the first 「...」 token
+    const afterFirst = matches[0].index + matches[0][0].length;
+    return { category: matches[0][1], title: nameStr.slice(afterFirst).trim() };
+  }
+  return null;
+}
+
 function createFoldersAndUpdateSheet() {
   const spreadsheetId = props.getProperty('RECORD_SHEET_ID');
   const pendingFolderId = props.getProperty('PENDING_FOLDER_ID');
@@ -376,17 +529,11 @@ function createFoldersAndUpdateSheet() {
       studentNames = sheet.getRange('A4:A' + lastRow).getValues().flat().filter(String);
     }
 
-    const categories = ['閱讀', '寫作（長文）', '寫作（實用文）'];
-
     const classReturnFolder = getOrCreateFolder(returnedFolderId, `【${className}】`);
     if (classReturnFolder && studentNames.length > 0) {
       studentNames.forEach(student => {
         if (className === "1A" && student === "陳大文") return;
-
-        const sFolder = getOrCreateFolder(classReturnFolder.getId(), `【${student}】`);
-        categories.forEach(cat => {
-          getOrCreateFolder(sFolder.getId(), cat);
-        });
+        getOrCreateFolder(classReturnFolder.getId(), `【${student}】`);
       });
     }
 
@@ -397,16 +544,16 @@ function createFoldersAndUpdateSheet() {
     const homeworkNames = homeworkValues[0];
     const deadlines = homeworkValues[1];
     
-    const homeworkByCategory = { '閱讀': [], '寫作（長文）': [], '寫作（實用文）': [] };
+    const homeworkByCategory = {};
     const homeworkFolderIds = new Array(homeworkNames.length).fill('');
     const homeworkInfos = [];
     
-    homeworkNames.forEach((name, index) => {
-      const match = name ? name.toString().match(/「(.*?)」/) : null;
-      if (match && categories.includes(match[1])) {
-        const title = name.replace(/「.*?」/, '').trim();
-        homeworkByCategory[match[1]].push(title);
-        homeworkInfos.push({ category: match[1], title: title });
+    homeworkNames.forEach(name => {
+      const info = parseHomeworkName(name);
+      if (info) {
+        if (!homeworkByCategory[info.category]) homeworkByCategory[info.category] = [];
+        homeworkByCategory[info.category].push(info.title);
+        homeworkInfos.push(info);
       } else {
         homeworkInfos.push(null);
       }
@@ -415,9 +562,12 @@ function createFoldersAndUpdateSheet() {
     const classPendingFolder = getOrCreateFolder(pendingFolderId, className);
     if (classPendingFolder) {
       const catFolders = {};
-      categories.forEach(c => catFolders[c] = getOrCreateFolder(classPendingFolder.getId(), c));
       homeworkInfos.forEach((info, index) => {
-        if (info && catFolders[info.category]) {
+        if (!info) return;
+        if (!catFolders[info.category]) {
+          catFolders[info.category] = getOrCreateFolder(classPendingFolder.getId(), info.category);
+        }
+        if (catFolders[info.category]) {
           const hwFolder = getOrCreateFolder(catFolders[info.category].getId(), info.title);
           if (hwFolder) homeworkFolderIds[index] = hwFolder.getId();
         }
@@ -431,11 +581,9 @@ function createFoldersAndUpdateSheet() {
         if (className === "1A" && student === "陳大文") return;
 
         const sFolder = getOrCreateFolder(classReturnFolder.getId(), `【${student}】`);
-        categories.forEach(cat => {
+        Object.keys(homeworkByCategory).forEach(cat => {
           const catFolder = getOrCreateFolder(sFolder.getId(), cat);
-          if(homeworkByCategory[cat]) {
-            homeworkByCategory[cat].forEach(hw => getOrCreateFolder(catFolder.getId(), hw));
-          }
+          if (catFolder) homeworkByCategory[cat].forEach(hw => getOrCreateFolder(catFolder.getId(), hw));
         });
       });
     }
@@ -454,8 +602,16 @@ function getOrCreateFolder(parentId, folderName) {
 
 function updateSubmissionStatus(sheet, className, studentNames, homeworkNames, deadlines, homeworkFolderIds) {
   if (studentNames.length === 0 || homeworkNames.length === 0) return;
-  const submissionData = Array.from({length: studentNames.length}, () => Array(homeworkNames.length).fill({background: '#ffffff', value: ''}));
-  
+
+  // Read existing values and backgrounds so we can preserve "已繳交"/"遲交"
+  // status for files that have already been moved out of the pending folder.
+  const existingRange  = sheet.getRange(4, 2, studentNames.length, homeworkNames.length);
+  const existingValues = existingRange.getValues();
+  const existingBg     = existingRange.getBackgrounds();
+
+  const newValues = existingValues.map(r => r.slice());
+  const newBg     = existingBg.map(r => r.slice());
+
   homeworkFolderIds.forEach((folderId, colIndex) => {
     if (!folderId) return;
     try {
@@ -469,17 +625,24 @@ function updateSubmissionStatus(sheet, className, studentNames, homeworkNames, d
         const fileKey = Object.keys(fileMap).find(n => n.includes(student));
         if (fileKey) {
           const late = fileMap[fileKey].getDateCreated() > new Date(deadlines[colIndex]);
-          submissionData[rowIndex][colIndex] = { background: late ? '#fff2cc' : '#d9ead3', value: late ? '遲交' : '已繳交' };
+          newValues[rowIndex][colIndex] = late ? '遲交' : '已繳交';
+          newBg[rowIndex][colIndex]     = late ? '#fff2cc' : '#d9ead3';
         } else {
-          submissionData[rowIndex][colIndex] = { background: '#f4cccc', value: '未繳交' };
+          // Only reset to '未繳交' if not previously marked as submitted or late.
+          // Once a file is moved to FEEDBACK / RETURNED the pending folder is
+          // empty, but the submission already happened — preserve that status.
+          const ev = existingValues[rowIndex][colIndex];
+          if (ev !== '已繳交' && ev !== '遲交') {
+            newValues[rowIndex][colIndex] = '未繳交';
+            newBg[rowIndex][colIndex]     = '#f4cccc';
+          }
         }
       });
     } catch(e) {}
   });
   
-  const range = sheet.getRange(4, 2, studentNames.length, homeworkNames.length);
-  range.setValues(submissionData.map(r => r.map(c => c.value)));
-  range.setBackgrounds(submissionData.map(r => r.map(c => c.background)));
+  existingRange.setValues(newValues);
+  existingRange.setBackgrounds(newBg);
 }
 
 // ================== 4. 逾期名單 ==================
@@ -491,9 +654,12 @@ function generateOverdueAssignments() {
 
   const studentSheet = SpreadsheetApp.openById(autoShareId).getSheets()[0];
   const studentMap = {};
-  studentSheet.getRange('A2:B' + studentSheet.getLastRow()).getValues().forEach(row => {
-    if(row[0] && row[1]) studentMap[row[1]] = `${row[0]}@ccckyc.edu.hk`; // 這裡順便幫您把逾期名單搜集的電郵也改正過來了
-  });
+  const lastStudentRow = studentSheet.getLastRow();
+  if (lastStudentRow >= 2) {
+    studentSheet.getRange('A2:C' + lastStudentRow).getValues().forEach(row => {
+      if(row[0] && row[1] && row[2]) studentMap[row[1] + '_' + row[2]] = `${row[0]}@ccckyc.edu.hk`; // 學號、班別、姓名
+    });
+  }
 
   const overdueSpreadsheet = SpreadsheetApp.openById(overdueId);
   let overdueSheet = overdueSpreadsheet.getSheetByName('Overdue Assignments') || overdueSpreadsheet.insertSheet('Overdue Assignments');
@@ -515,7 +681,7 @@ function generateOverdueAssignments() {
 
       assignments[0].forEach((assignment, cIdx) => {
         if (statuses[rIdx][cIdx] === '未繳交' && currentDate > new Date(assignments[1][cIdx])) {
-          if (studentMap[student]) overdueSheet.appendRow([className, student, studentMap[student], assignment, assignments[1][cIdx]]);
+          if (studentMap[className + '_' + student]) overdueSheet.appendRow([className, student, studentMap[className + '_' + student], assignment, assignments[1][cIdx]]);
         }
       });
     });
@@ -534,7 +700,7 @@ function getClassData() {
     const lastCol = sheet.getLastColumn();
     const hws = lastCol >= 2 ? sheet.getRange(1, 2, 2, lastCol - 1).getValues() : [[],[]];
     const students = sheet.getRange('A4:A' + sheet.getLastRow()).getValues().flat().filter(String);
-    const hwData = hws[0].map((name, i) => ({ name: name, deadline: hws[1][i].toString(), folderId: sheet.getRange(3, 2 + i).getValue() }));
+    const hwData = hws[0].map((name, i) => ({ name: name, deadline: formatDeadline(hws[1][i]), folderId: sheet.getRange(3, 2 + i).getValue() }));
     
     classData.push({
       className: className,
@@ -549,7 +715,7 @@ function getClassData() {
 }
 
 function getSpreadsheetData() {
-  const data = { classes: [], homeworks: {} };
+  const data = { classes: [], homeworks: {}, subjectConfig: getSubjectConfig() };
   SpreadsheetApp.openById(props.getProperty('RECORD_SHEET_ID')).getSheets().forEach(sheet => {
     const className = sheet.getRange('A1').getValue().toString().trim();
     if (!className) return;
@@ -563,6 +729,7 @@ function getSpreadsheetData() {
 
 function updateSpreadsheet(className, homeworkName, deadline) {
   const sheet = SpreadsheetApp.openById(props.getProperty('RECORD_SHEET_ID')).getSheets().find(s => s.getRange('A1').getValue().toString().trim() === className);
+  if (!sheet) return;
   const row1 = sheet.getRange(1, 1, 1, sheet.getMaxColumns()).getValues()[0];
   const nextCol = row1.findIndex((v, i) => i > 0 && !v) + 1 || row1.length + 1;
   sheet.getRange(1, nextCol).setValue(homeworkName);
