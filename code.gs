@@ -381,7 +381,9 @@ function sortStudentAssignments() {
     }
     if (!targetSubfolderId) targetSubfolderId = classInfo.rootFolderId;
     
-    try { file.moveTo(DriveApp.getFolderById(targetSubfolderId)); } catch (e) {}
+    try { file.moveTo(DriveApp.getFolderById(targetSubfolderId)); } catch (e) {
+      Logger.log('sortStudentAssignments: failed to move "%s" to folder %s — %s', fileName, targetSubfolderId, e.message);
+    }
   }
 }
 
@@ -446,29 +448,45 @@ function distributeHomework() {
     }
   }
 
+  // Sort keys longest-first so that e.g. "11A" is matched before "1A",
+  // and "陳大文" is matched before "陳大", preventing partial-name collisions.
+  function byLengthDesc(a, b) { return b.length - a.length; }
+  var classKeys = Object.keys(classMap).sort(byLengthDesc);
+
   var files = uploadFolder.getFiles();
   while (files.hasNext()) {
     var file = files.next();
     var fileName = file.getName();
-    var classKey = Object.keys(classMap).find(ck => fileName.includes(ck));
-    var studentKey = classKey && studentMap[classKey] ? Object.keys(studentMap[classKey]).find(sk => fileName.includes(sk)) : null;
+    var classKey = classKeys.find(ck => fileName.includes(ck)) || null;
+    var studentKeys = classKey && studentMap[classKey] ? Object.keys(studentMap[classKey]).sort(byLengthDesc) : [];
+    var studentKey = studentKeys.find(sk => fileName.includes(sk)) || null;
     
     var assignmentKeyword = null;
     if (classKey && studentKey) {
       const keyPrefix = `${classKey}_${studentKey}_`;
-      for (var key in assignmentMap) {
-        if (key.startsWith(keyPrefix)) {
-          const keyword = key.slice(keyPrefix.length);
-          if (fileName.includes(keyword)) {
-            assignmentKeyword = keyword; break;
-          }
-        }
+      // Check longer keywords first to avoid a short keyword shadowing a longer one
+      var kwCandidates = Object.keys(assignmentMap)
+        .filter(k => k.startsWith(keyPrefix))
+        .map(k => k.slice(keyPrefix.length))
+        .sort(byLengthDesc);
+      for (var i = 0; i < kwCandidates.length; i++) {
+        if (fileName.includes(kwCandidates[i])) { assignmentKeyword = kwCandidates[i]; break; }
       }
     }
 
-    if (classKey && studentKey && assignmentKeyword) file.moveTo(assignmentMap[`${classKey}_${studentKey}_${assignmentKeyword}`]);
-    else if (classKey && studentKey) file.moveTo(studentMap[classKey][studentKey]);
-    else if (classKey) file.moveTo(classMap[classKey]);
+    try {
+      if (classKey && studentKey && assignmentKeyword) {
+        file.moveTo(assignmentMap[`${classKey}_${studentKey}_${assignmentKeyword}`]);
+      } else if (classKey && studentKey) {
+        file.moveTo(studentMap[classKey][studentKey]);
+      } else if (classKey) {
+        file.moveTo(classMap[classKey]);
+      } else {
+        Logger.log('distributeHomework: no matching folder found for "%s" — file left in Feedback folder', fileName);
+      }
+    } catch (e) {
+      Logger.log('distributeHomework: failed to move "%s" — %s', fileName, e.message);
+    }
   }
 }
 
