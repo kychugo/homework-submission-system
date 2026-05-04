@@ -152,75 +152,87 @@
     .err-msg { color: #e74c3c; font-size: 14px; margin-top: -12px; margin-bottom: 10px; }
     .spin { animation: spin 1s linear infinite; display: inline-block; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* Language toggle */
+    .lang-btn {
+      position: fixed; top: 12px; right: 16px;
+      background: #2e86c1; color: #fff;
+      border: none; border-radius: 20px;
+      padding: 6px 16px; font-size: 13px;
+      cursor: pointer; z-index: 999;
+      transition: background 0.2s;
+    }
+    .lang-btn:hover { background: #1a6fa5; }
   </style>
 </head>
 <body>
+  <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
   <div class="header">
-    <h1>📚 帙雲交作業</h1>
-    <p>選擇班別、你的名字和作業，然後上傳檔案</p>
+    <h1 id="page-title">📚 帙雲交作業</h1>
+    <p id="page-desc">選擇班別、你的名字和作業，然後上傳檔案</p>
   </div>
 
   <div class="main-content">
     <!-- Step indicator -->
     <div class="steps" id="step-indicator">
-      <div class="step active" id="step-dot-1"><div class="dot">1</div>班別</div>
+      <div class="step active" id="step-dot-1"><div class="dot">1</div><span id="step-lbl-1">班別</span></div>
       <div class="step-line" id="line-1"></div>
-      <div class="step" id="step-dot-2"><div class="dot">2</div>姓名</div>
+      <div class="step" id="step-dot-2"><div class="dot">2</div><span id="step-lbl-2">姓名</span></div>
       <div class="step-line" id="line-2"></div>
-      <div class="step" id="step-dot-3"><div class="dot">3</div>作業</div>
+      <div class="step" id="step-dot-3"><div class="dot">3</div><span id="step-lbl-3">作業</span></div>
       <div class="step-line" id="line-3"></div>
-      <div class="step" id="step-dot-4"><div class="dot">4</div>上傳</div>
+      <div class="step" id="step-dot-4"><div class="dot">4</div><span id="step-lbl-4">上傳</span></div>
     </div>
 
     <!-- Step 1: Class -->
     <div class="card" id="step-1">
-      <h2>第一步：選擇班別</h2>
-      <label for="class-select">班別</label>
-      <select id="class-select"><option value="">載入中…</option></select>
+      <h2 id="s1-title">第一步：選擇班別</h2>
+      <label for="class-select" id="lbl-class">班別</label>
+      <select id="class-select"><option value="" id="class-loading">載入中…</option></select>
       <div id="class-error" class="err-msg"></div>
       <div class="btn-row">
-        <button class="btn btn-next" onclick="goStep2()">下一步 ➜</button>
+        <button class="btn btn-next" id="btn-next-1" onclick="goStep2()">下一步 ➜</button>
       </div>
     </div>
 
     <!-- Step 2: Student -->
     <div class="card" id="step-2" style="display:none;">
-      <h2>第二步：選擇你的名字</h2>
-      <label for="student-select">學生姓名</label>
+      <h2 id="s2-title">第二步：選擇你的名字</h2>
+      <label for="student-select" id="lbl-student">學生姓名</label>
       <select id="student-select"><option value="">請先選擇班別</option></select>
       <div id="student-error" class="err-msg"></div>
       <div class="btn-row">
-        <button class="btn btn-back" onclick="goStep(1)">◀ 返回</button>
-        <button class="btn btn-next" onclick="goStep3()">下一步 ➜</button>
+        <button class="btn btn-back" id="btn-back-2" onclick="goStep(1)">◀ 返回</button>
+        <button class="btn btn-next" id="btn-next-2" onclick="goStep3()">下一步 ➜</button>
       </div>
     </div>
 
     <!-- Step 3: Homework -->
     <div class="card" id="step-3" style="display:none;">
-      <h2>第三步：選擇作業</h2>
-      <label for="homework-select">作業</label>
+      <h2 id="s3-title">第三步：選擇作業</h2>
+      <label for="homework-select" id="lbl-hw">作業</label>
       <select id="homework-select"><option value="">請先選擇班別</option></select>
       <div id="hw-error" class="err-msg"></div>
       <div class="btn-row">
-        <button class="btn btn-back" onclick="goStep(2)">◀ 返回</button>
-        <button class="btn btn-next" onclick="goStep4()">下一步 ➜</button>
+        <button class="btn btn-back" id="btn-back-3" onclick="goStep(2)">◀ 返回</button>
+        <button class="btn btn-next" id="btn-next-3" onclick="goStep4()">下一步 ➜</button>
       </div>
     </div>
 
     <!-- Step 4: Upload -->
     <div class="card" id="step-4" style="display:none;">
-      <h2>第四步：上傳檔案</h2>
+      <h2 id="s4-title">第四步：上傳檔案</h2>
       <div class="summary">
-        <p><span class="label">班別：</span><span id="sum-class"></span></p>
-        <p><span class="label">姓名：</span><span id="sum-name"></span></p>
-        <p><span class="label">作業：</span><span id="sum-hw"></span></p>
+        <p><span class="label" id="lbl-sum-class">班別：</span><span id="sum-class"></span></p>
+        <p><span class="label" id="lbl-sum-name">姓名：</span><span id="sum-name"></span></p>
+        <p><span class="label" id="lbl-sum-hw">作業：</span><span id="sum-hw"></span></p>
       </div>
 
-      <label>上傳檔案（支援任何格式，可多選）</label>
+      <label id="lbl-upload">上傳檔案（支援任何格式，可多選）</label>
       <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
         <div class="icon">📁</div>
-        <p>點擊或<strong>拖放</strong>檔案到此處</p>
-        <p style="margin-top:4px; font-size:12px;">支援任何格式 · 可同時選多個檔案</p>
+        <p id="zone-text">點擊或<strong>拖放</strong>檔案到此處</p>
+        <p id="zone-hint" style="margin-top:4px; font-size:12px;">支援任何格式 · 可同時選多個檔案</p>
       </div>
       <input type="file" id="file-input" multiple>
 
@@ -228,7 +240,7 @@
       <div id="upload-error" class="err-msg"></div>
 
       <div class="btn-row">
-        <button class="btn btn-back" onclick="goStep(3)">◀ 返回</button>
+        <button class="btn btn-back" id="btn-back-4" onclick="goStep(3)">◀ 返回</button>
         <button class="btn btn-submit" id="submit-btn" onclick="submitHomework()">📤 提交作業</button>
       </div>
     </div>
@@ -240,12 +252,99 @@
       <p id="result-msg"></p>
       <div class="file-names" id="result-files"></div>
       <div class="btn-row" style="justify-content:center; margin-top:20px;">
-        <button class="btn btn-next" onclick="resetForm()">再交一份作業</button>
+        <button class="btn btn-next" id="btn-reset" onclick="resetForm()">再交一份作業</button>
       </div>
     </div>
   </div>
 
   <script>
+    // ── Language switcher ─────────────────────────────────────────────────
+    const I18N = {
+      zh: {
+        pageTitle: '📚 帙雲交作業', pageDesc: '選擇班別、你的名字和作業，然後上傳檔案',
+        stepLbl: ['班別', '姓名', '作業', '上傳'],
+        s1Title: '第一步：選擇班別', lblClass: '班別',
+        s2Title: '第二步：選擇你的名字', lblStudent: '學生姓名',
+        s3Title: '第三步：選擇作業', lblHw: '作業',
+        s4Title: '第四步：上傳檔案',
+        lblSumClass: '班別：', lblSumName: '姓名：', lblSumHw: '作業：',
+        lblUpload: '上傳檔案（支援任何格式，可多選）',
+        zoneText: '點擊或<strong>拖放</strong>檔案到此處',
+        zoneHint: '支援任何格式 · 可同時選多個檔案',
+        btnNext: '下一步 ➜', btnBack: '◀ 返回', btnSubmit: '📤 提交作業',
+        btnReset: '再交一份作業',
+        loading: '載入中…', selectClass: '— 請選擇班別 —',
+        selectName: '— 請選擇姓名 —', selectHw: '— 請選擇作業 —',
+        errClass: '請選擇班別', errStudent: '請選擇姓名', errHw: '請選擇作業',
+        errNoFile: '請選擇至少一個檔案',
+        uploading: '上傳中，請稍候…',
+        resultSuccess: '提交成功！', resultFail: '提交失敗',
+        uploadedLabel: '已上傳：',
+        fileTooLarge: '超過 48 MB 限制，已略過。',
+        removeTitle: '移除'
+      },
+      en: {
+        pageTitle: '📚 Zhiyun Submit Homework', pageDesc: 'Select your class, name and assignment, then upload',
+        stepLbl: ['Class', 'Name', 'Task', 'Upload'],
+        s1Title: 'Step 1: Select Class', lblClass: 'Class',
+        s2Title: 'Step 2: Select Your Name', lblStudent: 'Student Name',
+        s3Title: 'Step 3: Select Homework', lblHw: 'Homework',
+        s4Title: 'Step 4: Upload File(s)',
+        lblSumClass: 'Class: ', lblSumName: 'Name: ', lblSumHw: 'Homework: ',
+        lblUpload: 'Upload files (any format, multiple allowed)',
+        zoneText: 'Click or <strong>drag & drop</strong> files here',
+        zoneHint: 'Any format · Multiple files allowed',
+        btnNext: 'Next ➜', btnBack: '◀ Back', btnSubmit: '📤 Submit',
+        btnReset: 'Submit Another',
+        loading: 'Loading…', selectClass: '— Select Class —',
+        selectName: '— Select Name —', selectHw: '— Select Homework —',
+        errClass: 'Please select a class', errStudent: 'Please select your name', errHw: 'Please select a homework',
+        errNoFile: 'Please select at least one file',
+        uploading: 'Uploading, please wait…',
+        resultSuccess: 'Submitted!', resultFail: 'Submission Failed',
+        uploadedLabel: 'Uploaded: ',
+        fileTooLarge: 'exceeds 48 MB limit and was skipped.',
+        removeTitle: 'Remove'
+      }
+    };
+    let currentLang = localStorage.getItem('zhiyun_lang') || 'zh';
+
+    function applyLang() {
+      const t = I18N[currentLang];
+      document.getElementById('page-title').textContent = t.pageTitle;
+      document.getElementById('page-desc').textContent  = t.pageDesc;
+      for (let i = 1; i <= 4; i++) document.getElementById('step-lbl-' + i).textContent = t.stepLbl[i - 1];
+      document.getElementById('s1-title').textContent   = t.s1Title;
+      document.getElementById('lbl-class').textContent  = t.lblClass;
+      document.getElementById('s2-title').textContent   = t.s2Title;
+      document.getElementById('lbl-student').textContent = t.lblStudent;
+      document.getElementById('s3-title').textContent   = t.s3Title;
+      document.getElementById('lbl-hw').textContent     = t.lblHw;
+      document.getElementById('s4-title').textContent   = t.s4Title;
+      document.getElementById('lbl-sum-class').textContent = t.lblSumClass;
+      document.getElementById('lbl-sum-name').textContent  = t.lblSumName;
+      document.getElementById('lbl-sum-hw').textContent    = t.lblSumHw;
+      document.getElementById('lbl-upload').textContent    = t.lblUpload;
+      document.getElementById('zone-text').innerHTML    = t.zoneText;
+      document.getElementById('zone-hint').textContent  = t.zoneHint;
+      document.getElementById('btn-next-1').textContent = t.btnNext;
+      document.getElementById('btn-back-2').textContent = t.btnBack;
+      document.getElementById('btn-next-2').textContent = t.btnNext;
+      document.getElementById('btn-back-3').textContent = t.btnBack;
+      document.getElementById('btn-next-3').textContent = t.btnNext;
+      document.getElementById('btn-back-4').textContent = t.btnBack;
+      document.getElementById('submit-btn').textContent = t.btnSubmit;
+      document.getElementById('btn-reset').textContent  = t.btnReset;
+      document.getElementById('lang-btn').textContent   = currentLang === 'zh' ? 'EN' : '中文';
+      renderFileList(); // Refresh remove button titles
+    }
+
+    function toggleLang() {
+      currentLang = currentLang === 'zh' ? 'en' : 'zh';
+      localStorage.setItem('zhiyun_lang', currentLang);
+      applyLang();
+    }
+
     // ── State ────────────────────────────────────────────────────────────────
     let formData = { classes: [], students: {}, homeworks: {} };
     let selectedFiles = [];
@@ -253,6 +352,8 @@
 
     // ── Init ─────────────────────────────────────────────────────────────────
     window.onload = function() {
+      applyLang();
+      const t = I18N[currentLang];
       google.script.run
         .withSuccessHandler(function(data) {
           if (data.error) {
@@ -261,7 +362,7 @@
           }
           formData = data;
           const sel = document.getElementById('class-select');
-          sel.innerHTML = '<option value="">— 請選擇班別 —</option>';
+          sel.innerHTML = '<option value="">' + I18N[currentLang].selectClass + '</option>';
           data.classes.forEach(function(cls) {
             const opt = document.createElement('option');
             opt.value = cls; opt.textContent = cls;
@@ -269,7 +370,7 @@
           });
         })
         .withFailureHandler(function(err) {
-          document.getElementById('class-select').innerHTML = '<option value="">❌ 載入失敗：' + err.message + '</option>';
+          document.getElementById('class-select').innerHTML = '<option value="">❌ ' + err.message + '</option>';
         })
         .getStudentFormData();
 
@@ -307,13 +408,14 @@
     function goStep(n) { showStep(n); }
 
     function goStep2() {
+      const t = I18N[currentLang];
       const cls = document.getElementById('class-select').value;
       document.getElementById('class-error').textContent = '';
-      if (!cls) { document.getElementById('class-error').textContent = '請選擇班別'; return; }
+      if (!cls) { document.getElementById('class-error').textContent = t.errClass; return; }
 
       // Populate students
       const sel = document.getElementById('student-select');
-      sel.innerHTML = '<option value="">— 請選擇姓名 —</option>';
+      sel.innerHTML = '<option value="">' + t.selectName + '</option>';
       (formData.students[cls] || []).forEach(function(s) {
         const opt = document.createElement('option');
         opt.value = s; opt.textContent = s; sel.appendChild(opt);
@@ -322,14 +424,15 @@
     }
 
     function goStep3() {
+      const t = I18N[currentLang];
       const student = document.getElementById('student-select').value;
       document.getElementById('student-error').textContent = '';
-      if (!student) { document.getElementById('student-error').textContent = '請選擇姓名'; return; }
+      if (!student) { document.getElementById('student-error').textContent = t.errStudent; return; }
 
       // Populate homeworks
       const cls = document.getElementById('class-select').value;
       const sel = document.getElementById('homework-select');
-      sel.innerHTML = '<option value="">— 請選擇作業 —</option>';
+      sel.innerHTML = '<option value="">' + t.selectHw + '</option>';
       (formData.homeworks[cls] || []).forEach(function(hw) {
         const opt = document.createElement('option');
         opt.value = hw; opt.textContent = hw; sel.appendChild(opt);
@@ -338,9 +441,10 @@
     }
 
     function goStep4() {
+      const t = I18N[currentLang];
       const hw = document.getElementById('homework-select').value;
       document.getElementById('hw-error').textContent = '';
-      if (!hw) { document.getElementById('hw-error').textContent = '請選擇作業'; return; }
+      if (!hw) { document.getElementById('hw-error').textContent = t.errHw; return; }
 
       document.getElementById('sum-class').textContent = document.getElementById('class-select').value;
       document.getElementById('sum-name').textContent  = document.getElementById('student-select').value;
@@ -350,9 +454,10 @@
 
     // ── File handling ─────────────────────────────────────────────────────────
     function handleFiles(fileList) {
+      const t = I18N[currentLang];
       Array.from(fileList).forEach(function(f) {
         if (f.size > MAX_FILE_SIZE) {
-          alert(`「${f.name}」超過 48 MB 限制，已略過。`);
+          alert(`「${f.name}」${t.fileTooLarge}`);
           return;
         }
         selectedFiles.push(f);
@@ -361,13 +466,14 @@
     }
 
     function renderFileList() {
+      const t = I18N[currentLang];
       const ul = document.getElementById('file-list');
       ul.innerHTML = selectedFiles.map(function(f, i) {
         return `<li>
           <span>📄</span>
           <span class="fname">${escHtml(f.name)}</span>
           <span class="fsize">${formatSize(f.size)}</span>
-          <button onclick="removeFile(${i})" title="移除">✕</button>
+          <button onclick="removeFile(${i})" title="${t.removeTitle}">✕</button>
         </li>`;
       }).join('');
     }
@@ -379,15 +485,16 @@
 
     // ── Submit ────────────────────────────────────────────────────────────────
     function submitHomework() {
+      const t = I18N[currentLang];
       document.getElementById('upload-error').textContent = '';
       if (selectedFiles.length === 0) {
-        document.getElementById('upload-error').textContent = '請選擇至少一個檔案';
+        document.getElementById('upload-error').textContent = t.errNoFile;
         return;
       }
 
       const submitBtn = document.getElementById('submit-btn');
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="spin">⏳</span> 上傳中，請稍候…';
+      submitBtn.innerHTML = '<span class="spin">⏳</span> ' + t.uploading;
 
       const className    = document.getElementById('class-select').value;
       const studentName  = document.getElementById('student-select').value;
@@ -398,13 +505,13 @@
         google.script.run
           .withSuccessHandler(function(result) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '📤 提交作業';
+            submitBtn.textContent = I18N[currentLang].btnSubmit;
             showResult(result);
           })
           .withFailureHandler(function(err) {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = '📤 提交作業';
-            document.getElementById('upload-error').textContent = '❌ 提交失敗：' + err.message;
+            submitBtn.textContent = I18N[currentLang].btnSubmit;
+            document.getElementById('upload-error').textContent = '❌ ' + err.message;
           })
           .submitHomework({ className: className, studentName: studentName, homeworkName: homeworkName, files: encodedFiles });
       });
@@ -427,13 +534,14 @@
 
     // ── Result display ────────────────────────────────────────────────────────
     function showResult(result) {
+      const t = I18N[currentLang];
       showStep('result');
       document.getElementById('result-icon').textContent  = result.success ? '✅' : '❌';
-      document.getElementById('result-title').textContent = result.success ? '提交成功！' : '提交失敗';
+      document.getElementById('result-title').textContent = result.success ? t.resultSuccess : t.resultFail;
       document.getElementById('result-msg').textContent   = result.message;
       if (result.success && result.files) {
         document.getElementById('result-files').innerHTML =
-          '已上傳：<br>' + result.files.map(function(f) { return escHtml(f); }).join('<br>');
+          t.uploadedLabel + '<br>' + result.files.map(function(f) { return escHtml(f); }).join('<br>');
       } else {
         document.getElementById('result-files').textContent = '';
       }

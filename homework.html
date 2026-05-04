@@ -402,14 +402,15 @@
     // 根據選中的班別載入課業資料
     function loadHomeworkData(className) {
       google.script.run.withSuccessHandler(function(data) {
+        const t = I18N[currentLang];
         const homeworkList = document.getElementById('homework-list');
-        homeworkList.innerHTML = '<h3>現有課業</h3>';
+        homeworkList.innerHTML = t.hwListTitle;
         const classData = data.homeworks[className] || { names: [], deadlines: [] };
         classData.names.forEach((name, index) => {
-          const deadline = classData.deadlines[index] || '未設定';
+          const deadline = classData.deadlines[index] || t.noDeadline;
           const div = document.createElement('div');
           div.className = 'homework-item';
-          div.textContent = `${name} - 截止日期：${deadline}`;
+          div.textContent = `${name} - ${t.deadlineLabel}${deadline}`;
           homeworkList.appendChild(div);
         });
       }).getSpreadsheetData();
@@ -475,10 +476,11 @@
     }
 
     function validateDeadline() {
+      const t = I18N[currentLang];
       const value = this.value;
       const regex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
       if (!regex.test(value)) {
-        deadlineError.textContent = '格式錯誤，請使用「年-月-日 時:分」，例如「2025-04-24 23:59」';
+        deadlineError.textContent = t.errDateFmtInline;
         return;
       }
       const parts = value.split(/[- :]/);
@@ -489,7 +491,7 @@
       const minute = parseInt(parts[4], 10);
       const date = new Date(year, month, day, hour, minute);
       if (isNaN(date.getTime()) || date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day || date.getHours() !== hour || date.getMinutes() !== minute) {
-        deadlineError.textContent = '無效的日期或時間';
+        deadlineError.textContent = t.errDateInvalid;
       } else {
         deadlineError.textContent = '';
         syncPickerFromText(value);
@@ -502,6 +504,7 @@
 
     // 提交按鈕事件
     document.getElementById('submit-btn').addEventListener('click', function() {
+      const t = I18N[currentLang];
       const className  = document.getElementById('class-select').value;
       const subject    = document.getElementById('subject-select').value;
       const category   = document.getElementById('category-select').value;
@@ -510,18 +513,18 @@
       const deadline   = document.getElementById('deadline').value.trim();
 
       if (!className || !subject || !category || !homeworkName || !keyword || !deadline) {
-        alert('請填寫所有欄位');
+        alert(t.errAll);
         return;
       }
 
       if (!homeworkName.includes(keyword)) {
-        alert('關鍵詞必須是課業名稱的一部分');
+        alert(t.errKeyword);
         return;
       }
 
       const deadlineRegex = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/;
       if (!deadlineRegex.test(deadline)) {
-        alert('截止日期格式錯誤，請使用「年-月-日 時:分」，例如「2025-04-24 23:59」');
+        alert(t.errDateFmt);
         return;
       }
 
@@ -530,21 +533,23 @@
       const day = parseInt(parts[2], 10), hour = parseInt(parts[3], 10), minute = parseInt(parts[4], 10);
       const date = new Date(year, month, day, hour, minute);
       if (isNaN(date.getTime()) || date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day || date.getHours() !== hour || date.getMinutes() !== minute) {
-        alert('無效的日期或時間');
+        alert(t.errDateInvalid);
         return;
       }
 
-      document.getElementById('confirm-class').textContent    = `班別：${className}`;
-      document.getElementById('confirm-subject').textContent  = `科目：${subject}`;
-      document.getElementById('confirm-category').textContent = `課業類別：${category}`;
-      document.getElementById('confirm-homework-name').textContent = `課業名稱：${homeworkName}`;
-      document.getElementById('confirm-keyword').textContent  = `關鍵詞：${keyword}`;
-      document.getElementById('confirm-deadline').textContent = `截止日期：${deadline}`;
+      const p = t.confirmPrefix;
+      document.getElementById('confirm-class').textContent    = p.class + className;
+      document.getElementById('confirm-subject').textContent  = p.subject + subject;
+      document.getElementById('confirm-category').textContent = p.category + category;
+      document.getElementById('confirm-homework-name').textContent = p.name + homeworkName;
+      document.getElementById('confirm-keyword').textContent  = p.keyword + keyword;
+      document.getElementById('confirm-deadline').textContent = p.deadline + deadline;
       document.getElementById('confirm-modal').style.display  = 'block';
     });
 
     // 確認按鈕事件
     document.getElementById('confirm-btn').addEventListener('click', function() {
+      const t = I18N[currentLang];
       const className    = document.getElementById('class-select').value;
       const subject      = document.getElementById('subject-select').value;
       const category     = document.getElementById('category-select').value;
@@ -556,7 +561,7 @@
       const finalHomeworkName = `「${subject}」「${category}」${homeworkName.replace(keyword, `【${keyword}】`)}`;
 
       google.script.run.withSuccessHandler(function() {
-        alert('課業已成功添加');
+        alert(t.successMsg);
         document.getElementById('homework-name').value = '';
         document.getElementById('keyword').value = '';
         document.getElementById('deadline').value = '';
